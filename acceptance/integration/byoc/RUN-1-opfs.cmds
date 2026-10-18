@@ -1,0 +1,628 @@
+eval [location.href, E.assets, !!navigator.serviceWorker.controller, E.currentModule, Object.keys(localStorage).join(',')]
+keys w:2500
+shot r01_title
+keys SPACE
+wait /1-Play/ 30
+shot r02_menu
+keys 1
+wait /Main Menu/ 60
+text
+shot r03_starport
+keys l
+keys w:1500
+text
+keys a
+keys w:1000
+text
+keys a
+keys w:1500
+text
+keys y
+keys w:1500
+text
+keys b
+keys w:2000
+text
+keys a
+keys w:1200
+text
+keys a
+keys w:1200
+text
+keys a
+keys w:1200
+text
+keys a
+keys w:1200
+text
+keys a
+keys w:1200
+text
+keys a
+keys w:1200
+text
+keys a
+keys w:1200
+text
+keys a
+keys w:1200
+text
+keys a
+keys w:1200
+text
+keys a
+keys w:1200
+text
+keys a
+keys w:1200
+text
+keys a
+keys w:1200
+text
+keys a
+keys w:1200
+text
+keys a
+keys w:1200
+text
+keys a
+keys w:1200
+text
+keys a
+keys w:1200
+text
+keys a
+keys w:1200
+text
+keys a
+keys w:1200
+text
+keys a
+keys w:1200
+text
+keys a
+keys w:1200
+text
+keys a
+keys w:1200
+text
+keys a
+keys w:1200
+text
+keys a
+keys w:1200
+text
+keys a
+keys w:1200
+text
+keys a
+keys w:1200
+text
+keys a
+keys w:1200
+text
+keys a
+keys w:1200
+text
+keys a
+keys w:1200
+text
+keys a
+keys w:1200
+text
+keys a
+keys w:1200
+text
+keys b
+keys w:1200
+text
+keys c
+keys w:1200
+text
+keys e
+keys w:1200
+text
+keys f
+keys w:1200
+text
+keys g
+keys w:1200
+text
+keys b
+keys w:1200
+text
+keys c
+keys w:1200
+text
+keys BS BS A C E ENTER
+keys w:1500
+text
+shot r04_recruit
+keys a
+keys w:1200
+keys y
+keys w:1200
+keys c
+keys w:1500
+keys a
+keys w:1000
+text
+keys b
+keys w:1000
+text
+keys c
+keys w:1000
+text
+keys e
+keys w:1000
+text
+keys f
+keys w:1000
+text
+keys g
+keys w:1000
+text
+keys a
+keys w:1000
+text
+keys b
+keys w:1000
+text
+keys c
+keys w:1000
+text
+keys e
+keys w:1000
+text
+keys BS BS BS BS S P A R K S  ENTER
+keys w:1500
+text
+keys a
+keys w:1200
+keys y
+keys w:1200
+keys c
+keys w:1500
+keys a
+keys w:1000
+text
+keys b
+keys w:1000
+text
+keys c
+keys w:1000
+text
+keys e
+keys w:1000
+text
+keys f
+keys w:1000
+text
+keys g
+keys w:1000
+text
+keys a
+keys w:1000
+text
+keys b
+keys w:1000
+text
+keys c
+keys w:1000
+text
+keys e
+keys w:1000
+text
+keys BS BS BS BS G R U N T  ENTER
+keys w:1500
+text
+keys ENTER
+wait /Main Menu/ 20
+keys b
+keys w:1200
+text
+keys c
+keys w:2000
+text
+shot r05_shipbrowser
+keys b
+keys w:2500
+text
+eval [E.state.G[43], E.state.G[78]*30000+E.state.G[79], E.state.G[52]]
+keys ENTER
+wait /Main Menu/ 20
+keys f
+keys w:3000
+shot r06_fuel
+eval E.state.G[2200]
+keys ENTER
+wait /Main Menu/ 20
+keys l
+wait /SELECT ONE/ 60
+text
+shot r08_space
+keys a
+keys w:2500
+shot r09_galaxy
+text
+keys d d
+keys w:2500
+shot r10_sector
+keys d
+keys w:2500
+text
+shot r11_downscan
+keys a
+keys w:2000
+keys a
+keys w:2000
+keys c
+keys w:2000
+text
+shot r12_computer
+keys d
+keys w:2500
+text
+shot r13_mission
+keys ENTER
+keys w:2500
+text
+keys c
+keys w:2500
+keys d
+keys w:1500
+text
+keys w:3000 d
+keys w:2000
+text
+eval [E.input.queue.length, E.currentModule]
+keys d
+text
+keys w:3000 ENTER
+keys w:2000
+keys d
+keys w:2000
+keys d
+keys w:2000
+keys b
+wait /Main Menu/ 60
+shot r14_docked
+text
+keys h
+keys w:2500
+text
+shot r15_hq
+keys ENTER
+keys w:2000
+text
+keys ENTER
+wait /Main Menu/ 20
+eval [E.state.G[110],E.state.G[111],E.state.G[112], E.state.G[2235], Array.from(E.state.G.slice(2230,2245))]
+keys l
+wait /SELECT ONE/ 60
+keys RIGHT
+keys w:2500
+keys RIGHT
+keys w:2500
+keys DOWN
+keys w:2500
+keys DOWN
+keys w:2500
+keys DOWN
+keys w:2500
+text
+keys d
+keys w:2500
+shot r16_station_sector
+keys d
+keys w:2500
+text
+shot r17_station
+keys b
+keys w:6000
+text
+shot r18_inside
+eval [E.currentModule, E.state.G[2227]]
+text
+keys DOWN
+keys w:2000
+keys UP
+keys w:2000
+text
+shot r19_exit
+keys y
+wait /SELECT ONE/ 60
+shot r20_back_in_space
+eval [E.currentModule, Object.keys(localStorage).filter(k=>/IN/.test(k)), E.files.saved('INMAP-1.BAS')?.length]
+keys d
+keys w:2500
+keys d
+keys w:2500
+keys b
+keys w:6000
+eval [E.currentModule]
+shot r21_inside_again
+text
+note test intervention as RUN-1 step 24: G!(2235) = 100 before leaving the station
+eval (E.state.G[2235] = 100)
+keys DOWN
+keys w:2000
+keys UP
+keys w:2000
+keys y
+keys w:8000
+eval E.currentModule
+text
+shot r22_encounter
+keys y
+keys w:6000
+eval E.currentModule
+text
+eval E.currentModule
+keys y
+keys w:3000
+text
+shot r23_comms
+keys a
+keys w:3000
+text
+keys b
+keys w:6000
+eval [E.currentModule, E.state.G[2235]]
+text
+shot r23b_spbattle_move
+keys h
+keys w:5000
+eval [E.currentModule]
+text
+eval (E.state.G[2235] = 1)
+keys w:3000
+text
+shot r24_after_jump
+keys n
+keys w:3000
+text
+keys w:2500
+text
+eval E.currentModule
+keys w:2500
+text
+eval E.currentModule
+keys w:2500
+text
+eval E.currentModule
+keys w:2500
+text
+eval E.currentModule
+keys w:2500
+text
+eval E.currentModule
+keys w:2500
+text
+eval E.currentModule
+keys n
+wait /Movement Phase/ 30
+keys h
+keys w:5000
+eval [E.currentModule]
+text
+keys w:3000
+text
+eval [E.currentModule, E.state.G[2235]]
+shot r24b_out_of_fuel
+eval (E.state.G[2235] = 1)
+keys ENTER
+keys w:6000
+eval [E.currentModule]
+text
+keys w:2500
+text
+eval E.currentModule
+keys n
+wait /Movement Phase/ 30
+keys h
+keys w:2500
+text
+eval E.currentModule
+keys w:2500
+text
+eval E.currentModule
+keys w:2500
+text
+eval E.currentModule
+keys ENTER
+keys w:2500
+text
+eval E.currentModule
+keys w:2500
+text
+eval E.currentModule
+keys w:2500
+text
+eval E.currentModule
+keys n
+wait /Movement Phase/ 30
+keys h
+keys w:2500
+text
+eval E.currentModule
+keys w:2500
+text
+eval E.currentModule
+keys w:2500
+text
+eval E.currentModule
+keys ENTER
+keys w:2500
+text
+eval E.currentModule
+keys n
+keys w:2500
+text
+eval E.currentModule
+eval [E.currentModule, E.state.G[2235], E.state.G[2200]]
+eval (E.state.G[2235] = 1)
+keys d
+keys w:2500
+keys d
+keys w:2500
+text
+keys b
+keys w:6000
+eval E.currentModule
+keys DOWN
+keys w:1200
+keys DOWN
+keys w:1200
+keys DOWN
+keys w:1200
+keys DOWN
+keys w:1200
+keys DOWN
+keys w:1200
+keys DOWN
+keys w:1200
+keys DOWN
+keys w:1200
+keys DOWN
+keys w:1200
+keys DOWN
+keys w:1200
+keys DOWN
+keys w:1200
+keys DOWN
+keys w:1200
+keys DOWN
+keys w:1200
+keys DOWN
+keys w:1200
+keys RIGHT
+keys w:1200
+keys RIGHT
+keys w:1200
+keys RIGHT
+keys w:1200
+keys RIGHT
+keys w:1200
+keys UP
+keys w:1200
+keys w:3000
+eval E.currentModule
+text
+eval E.currentModule
+shot r25_inside_enemy
+keys ENTER
+keys w:4000
+shot r26_battle
+text
+keys w:1500
+text
+eval E.currentModule
+keys n
+keys w:1500
+text
+eval E.currentModule
+keys b
+keys w:1500
+text
+eval E.currentModule
+keys b
+keys w:1500
+text
+eval E.currentModule
+keys b
+keys w:1500
+text
+eval E.currentModule
+keys b
+keys w:1500
+text
+eval E.currentModule
+keys ENTER
+keys w:1500
+text
+eval E.currentModule
+keys n
+keys w:1500
+text
+eval E.currentModule
+keys b
+keys w:1500
+text
+eval E.currentModule
+keys b
+keys w:1500
+text
+eval E.currentModule
+keys b
+keys w:1500
+text
+eval E.currentModule
+keys b
+keys w:1500
+text
+eval E.currentModule
+keys ENTER
+keys w:1500
+text
+eval E.currentModule
+keys w:1500
+text
+eval E.currentModule
+keys n
+keys w:1500
+text
+eval E.currentModule
+keys b
+keys w:1500
+text
+eval E.currentModule
+keys b
+keys w:1500
+text
+eval E.currentModule
+keys b
+keys w:1500
+text
+eval E.currentModule
+keys b
+keys w:1500
+text
+eval E.currentModule
+keys ENTER
+keys w:1500
+text
+eval E.currentModule
+keys w:1500
+text
+eval E.currentModule
+keys n
+keys w:1500
+text
+eval E.currentModule
+keys b
+keys w:1500
+text
+eval E.currentModule
+keys b
+keys w:1500
+text
+eval E.currentModule
+keys b
+keys w:1500
+text
+eval E.currentModule
+keys b
+keys w:1500
+text
+eval E.currentModule
+keys ENTER
+keys w:1500
+text
+eval E.currentModule
+keys w:1500
+text
+eval E.currentModule
+shot r27_battle_state
+eval [E.currentModule, E.assets, !!navigator.serviceWorker.controller]
+quit

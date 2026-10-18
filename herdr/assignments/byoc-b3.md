@@ -1,0 +1,14 @@
+# Lane: byoc-b3 (Fable) — BYOC tier 3: the module translators in JS, byte-identical (2026-10-18)
+
+Read FOREMAN.md, `docs/BYOC.md` (all; you implement section 3.4 = work item B3), RULINGS.md SC-3/SC-4/SC-5 (all A), `decode/tools/qbdis.py` + `mz.py` (EXE -> listing, uses capstone 16-bit), `decode/pseudo/tools/qb2bas.py` (listing + `<MOD>_names.json` + `_header.md` -> `.bas.md`), `game/modules/{space,starport,inside}/bas2js.py` (`.bas.md` -> module JS; three variants).
+
+Goal: a browser-runnable pipeline `EXE bytes + our annotations -> module JS` that reproduces today's committed `game/modules/**` output byte for byte, so the public game can rebuild its modules from the player's own EXEs (SC-5 = A). No original bytes or game text may end up in the files you add.
+
+Steps (commit after each; the index is shared, commit with a pathspec):
+0. **Reproducibility baseline (Python).** Write `tools/byoc/rebuild_all.sh` (or .py) that runs today's Python pipeline for all 7 modules from the originals (`<targets>\starcommand\starcoma\`, read-only) into a scratch dir: listings, `.bas.md`, module JS. Diff against the committed files. Every difference is either a hand edit that must become an annotation (move it into `_header.md`, names.json or a new `<MOD>_patches.json` applied by the pipeline) or a pipeline bug; fix until the scratch output equals the repo byte for byte. Record the result in `docs/byoc/B3.md`.
+1. **One bas2js.** Merge the three bas2js variants into one parameterised translator (per-module options in a JSON), still Python, still byte-identical on all modules.
+2. **JS port**, in `game/byoc/` (new dir, you own it): `mz.js`, `dis16.js` (8086 decoder for exactly the opcode set the listings use; derive the opcode inventory from the 7 listings and write a table-driven decoder, no external library), `qbdis.js`, `qb2bas.js`, `bas2js.js`. Pure functions over `Uint8Array` + JSON annotations; no DOM; runnable in node and in a Web Worker.
+3. **Equivalence test** `game/byoc/byoc.test.mjs`: on this machine (originals present) run the JS pipeline for all 7 modules and assert byte equality with the committed listings (normalised as qbdis prints them), `.bas.md` and module JS. Skips with a clear message when the originals are absent.
+4. **Audit:** the annotations the pipeline needs must not contain game text or bytes. List every annotation file and the fields that quote game strings (names.json `_why` texts often quote strings; replace quotes with offsets, e.g. `string at DS 0x1B6C`), keeping the generated output identical. Note what you could not clean in `docs/byoc/B3.md`.
+
+Do not start browsers or DOSBox (RAM is tight; another lane owns the single headless Chrome slot). Run `bash tools/check_js.sh` before committing anything under `game/`. Never modify the originals. Shell rule: rm paths as `"${VAR:?}/..."` or literals. 5-line STATUS.md block per step with `date` output; DONE block at the end.

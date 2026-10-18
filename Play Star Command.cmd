@@ -1,0 +1,11 @@
+@echo off
+rem One-click launcher: start the local server (if not running) and open the game in Chrome app mode.
+set ROOT=%~dp0
+set PORT=8088
+set PY=python
+netstat -ano | findstr /r /c:":%PORT% .*LISTENING" >nul 2>&1
+if errorlevel 1 (
+  start "Star Command server" /min "%PY%" -I "%ROOT%tools\serve.py" %PORT%
+  timeout /t 2 /nobreak >nul
+)
+start "" "C:\Program Files\Google\Chrome\Application\chrome.exe" --app=http://localhost:%PORT%/index.html --start-fullscreen

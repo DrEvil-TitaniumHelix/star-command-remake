@@ -1,0 +1,58 @@
+# merged dosbox-ref verdicts after the SC-2 / F-1 / F-3 re-compare (2026-10-16); colour mapping in compare.py is now identity for SCREEN 1 (grey = grey)
+SU-01	`acceptance/ref/SU-01.png` + `SU-01.wav` (music from 243 s)	REF PASS (0 px after colour mapping)
+SU-02	`acceptance/ref/SU-02.png` (frame 1), `SU-02f2..f4.png`	REF PASS (the engine still = original frame 3 TITLE.BAS[3] at (48,58), 0 px; its label "frame 1" is wrong. Timing measured: frames 1..3 2.4 s each, frame 4 held 3 x 2.4 = 7.2 s, title restore + frame 1 in the same instant, cycle 14.4 s, as 06BC-07AA)
+SU-03	`acceptance/ref/SU-03.png`	REF PASS (0 px after SC-2/F-1)
+SU-04	`acceptance/ref/SU-04.png`	REF PASS (0 px after SC-2/F-1)
+PT-00	`acceptance/ref/PT-00.png` (3 recruits, unnamed Wasp)	REF PASS (frame, inverted banner, LOGO XOR, SPPIC, squad columns identical: diffs = fixture names only)
+PT-02	`acceptance/ref/PT-02.png`	REF PASS (menu exact; diffs = fixture squad only)
+PT-03	`acceptance/ref/PT-03.png`	REF PASS (diffs = squad data only)
+PT-04	`acceptance/ref/PT-04.png`	REF PASS (diffs = squad data only)
+PT-05	`acceptance/ref/PT-05.png`	REF PASS (diffs = squad data only)
+PT-06	`acceptance/ref/PT-06.png` (GRUNT In Dry Dock)	REF PASS (name = data)
+PT-07	`acceptance/ref/PT-07.png` (0 sessions due: A..C only)	REF PASS (texts/positions match; D row absent because 0 sessions, as the self-check states)
+PT-08	`acceptance/ref/PT-08.png` (mid-bar, ship not yet christened)	REF PASS (box/bar geometry identical; `Refueling ISS` centred on the empty name; bar length = progress)
+PT-09	`acceptance/ref/PT-09.png`	REF PASS (17,14 / 20,2 / 21,2 / 23,2 + dashes; ordinal/section/word length are rolls)
+PT-10	`acceptance/ref/PT-10.png` (+ `PT-10h.png` first-visit mission text)	REF PASS (16,14 Headquarters, 20,2/21,2 prompt exact)
+PT-11	`acceptance/ref/PT-11.png`	REF PASS (0 diffs outside data)
+PT-12	`acceptance/ref/PT-12.png`	REF PASS (0 diffs outside data)
+PT-13	`acceptance/ref/PT-13.png` (no squad)	REF PASS (20,2 text exact; the two SUB_20B6 pauses last 1.5 s at Delay = Standard)
+PT-14	`acceptance/ref/PT-14.png`	REF PASS (0 diffs outside data)
+PT-15	`acceptance/ref/PT-15.png`	REF PASS (positions exact; Standard Delay Factor 2069 = this emulated CPU's calibration, the engine shows the shipped 188)
+SP-00/SP-01	`acceptance/ref/SP-01.png`	REF FAIL (CIRCLE rasterisation: the rounded console panels and the ship-panel ring differ by 1 px steps along every arc, PAINT follows; qa fix request F-2. Everything else = data: crew, Wasp sprite, fuel/armor values)
+SP-02	`acceptance/ref/SP-02.png`	REF PASS for the scan panel (GALMAP, header, 20,3); console arcs = SP-00/SP-01 F-2
+SP-03	`acceptance/ref/SP-03.png`	REF PASS for the scan panel; console arcs equal after F-2
+SP-03a	`acceptance/ref/SP-03a.png`	REF PASS for the panel (STARPORT / LUNA, SPPIC, menu); console arcs equal after F-2
+SP-03b	`acceptance/ref/SP-03b.png`	REF PASS for the panel (SPSTGRPH, menu); console arcs equal after F-2
+SP-05	`acceptance/ref/SP-05.png`	REF PASS for the panel; console arcs equal after F-2
+SP-06	`acceptance/ref/SP-06.png`	REF PASS for the panel; console arcs equal after F-2
+SP-07	`acceptance/ref/SP-07.png` (GRUNT Repairing)	REF PASS for the panel; console arcs equal after F-2
+SP-08	`acceptance/ref/SP-08.png`	REF PASS for the panel; console arcs equal after F-2
+SP-09	`acceptance/ref/SP-09.png`	REF PASS for the panel; console arcs equal after F-2
+SP-10	`acceptance/ref/SP-10.png` (no items: returns at once)	REF N/A (the original with no equipment returns to SP-01 at once, as the self-check says; the EQUIPING page needs items, not captured yet)
+SP-11	`acceptance/ref/SP-11.png`	REF PASS for the panel (no text cursor visible in the original either); console arcs equal after F-2
+IN-02	`acceptance/ref/IN-02.png`	REF PASS (6 px = squad marker animation phase; corridor bar and INSH[42] at (98,47) identical = D-IN-1)
+IN-03	`acceptance/ref/IN-03.png`	REF PASS (picker layout; names = data)
+IN-04	`acceptance/ref/IN-04.png` (no items)	REF N/A (with no equipment E returns at once; EQUIPING page not reached)
+IN-05	`acceptance/ref/IN-05.png`	REF PASS (name = data)
+IN-06	`acceptance/ref/IN-06.png`	REF PASS (picker; names = data)
+IN-07	`acceptance/ref/IN-07.png` (GRUNT page 2)	REF PASS (all labels/columns identical; values = data)
+IN-08	`acceptance/ref/IN-08.png`	REF PASS (5,8 / 8,4 / 8,13 / rows / Press ENTER identical; names = data)
+IN-12	`acceptance/ref/IN-12.png`	REF PASS (0 px; shown for 5 x SUB_0FFB = 0.65 s at Delay = Standard)
+IN-13	`acceptance/ref/IN-13.png`	REF PASS after F-3 (re-compare 2026-10-16: no cursor in the engine either; 68 px = the delay value 2069 vs 188, data). History: was REF FAIL (block cursor at 23,36), D-IN-2
+IN-14	`acceptance/ref/IN-14.png`	REF PASS (0 px)
+PB-01	`acceptance/ref/PB-01.png`, `PB-01e.png` (enemy surprised, 4 groups)	REF PASS vs `acceptance/integration/run1/r25_inside_enemy.png` (401 px = the surprised line (state)); layout as the plains still
+PB-02	`acceptance/ref/PB-02.png`, `PB-02a..c.png`, `PB-02e.png`	REF PASS vs `acceptance/integration/run2/r2_pb_battle.png` (panels, grid, table, map frame, door gap identical; unit/obstacle placement random; portrait overlays start at (22,33) = (8,25)+(14,8): D-QA-5)
+PB-08	`acceptance/ref/PB-08.png`	REF PASS (0 px)
+SP-04	`acceptance/ref/SP-04.png` (sector (28,3), D, Down, D)	REF PASS for the panel (SYSTEM SCAN, `(29,29) ZN:A`, Star-1, star sprite, planet, menu); console arcs equal after F-2
+SP-04a	`acceptance/ref/SP-04a.png` (then Left x3, Up x3, D)	REF PASS for the panel (all 14 labels at their rows/cols, planet window, 5-item menu; values = this planet's roll); console arcs equal after F-2. C here gives `Drop ship or pilot not ready` (no drop ship)
+SB-01	`acceptance/ref/SB-01.png` (3 Pirate ships, key y)	REF PASS for the panel (20,8 Communications Phase, A..F columns, 24,3 prompt); enemy count/positions = encounter roll; console arcs equal after F-2
+SB-02	`acceptance/ref/SB-02.png` (key f after y)	REF PASS for the panel (Movement Phase 1, A..H, cursor arrows); console arcs equal after F-2
+SB-02v	`acceptance/ref/SB-02v.png`	REF PASS (VISUAL redraw, player head at (64,64); the right-hand enemy at dx = +7 is drawn at the right edge, sprite x 129..135: D-SB-2); console arcs equal after F-2
+SB-02s	`acceptance/ref/SB-03.png` (same capture)	REF PASS (grid lines, letters at (EnX*5-23, EnY*5+24), player marker); console arcs equal after F-2
+SB-03	`acceptance/ref/SB-03.png`	REF PASS (20,11 Enemy Report, A..C-In Range, Press ENTER Key); console arcs equal after F-2
+SB-04	`acceptance/ref/SB-04.png` (+ `SB-04o.png` Battle Over)	REF PASS (21,3 / 23,3 `Sucessfull`, fuel 90 -> 50 = JumpFuel 40; `Battle Over` 22,14 for 1.5 s); console arcs equal after F-2
+SP-13	`acceptance/ref/SP-13.png` (+ `SP-13r.png` rescue text)	REF PASS (20,3 Out of fuel!, fuel 0, RED; then rows 21..24 `Rescued in 103 days` / `for 20000 credits.` / `BAKER has starved to death.` / `Press ENTER Key`); console arcs equal after F-2. Colour note: captured after a ground combat, colour 3 white in the original at that point (R-1 addendum)
+IN-02c	`acceptance/ref/IN-02c.png` (location 1 exit, DOWN UP from the entry)	REF PASS (17,29 The Exit, 20,26 / 21,26 question at the same cells). Colour note: this ref (and SP-13) was taken after a ground combat; from then on the original shows SCREEN 1 colour 3 white (see DOSBOX_REQUESTS R-1 addendum) - geometry/text equal
+PB-04	`acceptance/ref/PB-04.png` (+ `PB-04door1/2.png`)	REF PASS for the layout (20,10 Movement Phase n, A/B/C rows 22..24, cursor arrows). But see PB door: the original lets the squad leave through the bottom door (D-QA-7 / D-MX-1, qa fix request F-6)
+PB-05	`acceptance/ref/PB-05.png`	REF PASS (20,10 name [stamina], Groups In Range, Command ... on A1, ENTER to accept / A-D 1-5, W-ait .. E-sp rows identical; values = state)
+SP-04b	`acceptance/ref/SP-04b2,4,5,6,7.png` (frames), `SP-04bf.png` (result)	REF PASS: the engine still is the original's DropShip5 frame at (56,33) pixel-for-pixel (frame blob x 57..80 y 33..50 and planet x 67..71 y 70..75 identical), not DropShip4 as its label says (D-QA-6); console arcs equal after F-2. Test intervention: drop-ship parts G!(21),G!(22) = 1 in the scratch save (the Wasp has only part 1)

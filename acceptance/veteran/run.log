@@ -1,0 +1,967 @@
+keys w:3000 SPACE
+wait /1-Play/ -> ok after 1.9 s [module STARCOMM]
+eval [location.href, E.files.saved('CHARINFO.BAS')?.length, Object.keys(localStorage)] = ["http://127.0.0.1:8097/index.html?save=veteran",10412,["starcommand:file:CHARNAME","starcommand:file:CHARINFO.BAS"]]
+keys 1
+wait /Main Menu/ -> ok after 0.9 s [module STARPORT]
+text [module STARPORT]
+    1|········································|
+    2|·???????????????????????????············|
+    3|·???????????????????????????············|
+    4|·    Rank     Name     Class············|
+    5|·                           · ? ?· ?   ·|
+    6|·P> Commodore Vasquez   Pil ·  ? ··    ·|
+    7|·C> Brigadier Okafor    Pil ·   ·· ? ? ·|
+    8|·1>   Colonel Brandt    Pil ·  ····??  ·|
+    9|·2>     Major Nakamura  Mar ·  ·····? ?·|
+   10|·3>   Colonel Kowalski  Mar ·  ?···??  ·|
+   11|·4>     Major Dubois    Sol · ???·· ?? ·|
+   12|·5> Commander Haddad    Sol ·  ??·???  ·|
+   13|·6>     Major Solveig   Esp ·? ??·???  ·|
+   14|·                           ·  ??·???? ·|
+   15|········································|
+   16|·         Main Menu                    ·|
+   17|·A-Personnel       G-Game Save         ·|
+   18|·B-Buy             H-Headquarters      ·|
+   19|·C-Sell            I-Inspect           ·|
+   20|·D-Dry Dock        K-Christen          ·|
+   21|·E-Training        L-Leave             ·|
+   22|·F-Fuel            M-Medical           ·|
+   23|·                  T-Time Delay        ·|
+   24|·Select Option                         ·|
+   25|········································|
+shot VET-01_starport_main
+keys a
+wait /Recruitment Office/ -> ok after 0.0 s [module STARPORT]
+shot VET-02_personnel
+keys ENTER
+wait /Main Menu/ -> ok after 0.0 s [module STARPORT]
+keys i
+wait /Inspect Ship/ -> ok after 0.0 s [module STARPORT]
+keys a
+wait /Status Report/ -> ok after 0.0 s [module STARPORT]
+text [module STARPORT]
+    1|········································|
+    2|·???????????????????????????············|
+    3|·???????????????????????????············|
+    4|·    Rank     Name     Class············|
+    5|·                           · ? ?· ?   ·|
+    6|·P> Commodore Vasquez   Pil ·  ? ··    ·|
+    7|·C> Brigadier Okafor    Pil ·   ·· ? ? ·|
+    8|·1>   Colonel Brandt    Pil ·  ····??  ·|
+    9|·2>     Major Nakamura  Mar ·  ·····? ?·|
+   10|·3>   Colonel Kowalski  Mar ·  ?···??  ·|
+   11|·4>     Major Dubois    Sol · ???·· ?? ·|
+   12|·5> Commander Haddad    Sol ·  ??·???  ·|
+   13|·6>     Major Solveig   Esp ·? ??·???  ·|
+   14|·                           ·  ??·???? ·|
+   15|········································|
+   16|·ISS Valkyrie Status Report            ·|
+   17|·Warrior Class Frigate                 ·|
+   18|·                                      ·|
+   19|·Base Weight...201 tns  Armor......1000·|
+   20|·Cargo Weight.. 81 tns  Defense....-15%·|
+   21|·Total Weight..282 tns  Max. Move.....6·|
+   22|·Max. Weight...300 tns  Cur. Move.....6·|
+   23|·Credits.......  50000                 ·|
+   24|·            Press SPACEBAR            ·|
+   25|········································|
+shot VET-03_inspect_ship_1
+keys SPACE
+text [module STARPORT]
+    1|········································|
+    2|·???????????????????????????············|
+    3|·???????????????????????????············|
+    4|·    Rank     Name     Class············|
+    5|·                           · ? ?· ?   ·|
+    6|·P> Commodore Vasquez   Pil ·  ? ··    ·|
+    7|·C> Brigadier Okafor    Pil ·   ·· ? ? ·|
+    8|·1>   Colonel Brandt    Pil ·  ····??  ·|
+    9|·2>     Major Nakamura  Mar ·  ·····? ?·|
+   10|·3>   Colonel Kowalski  Mar ·  ?···??  ·|
+   11|·4>     Major Dubois    Sol · ???·· ?? ·|
+   12|·5> Commander Haddad    Sol ·  ??·???  ·|
+   13|·6>     Major Solveig   Esp ·? ??·???  ·|
+   14|·                           ·  ??·???? ·|
+   15|········································|
+   16|·ISS Valkyrie Status Report            ·|
+   17|·-Engine            -Tow Link          ·|
+   18|·-Retros            -Hull Int.         ·|
+   19|·-Life Suprt        -Drop Ship1        ·|
+   20|·-Power             -Drop Ship2        ·|
+   21|·-Commun                               ·|
+   22|·-Computer                             ·|
+   23|·(-) okay  (*) broken  (#) 4000 to fix ·|
+   24|·            Press SPACEBAR            ·|
+   25|········································|
+shot VET-03_inspect_ship_2
+keys SPACE
+text [module STARPORT]
+    1|········································|
+    2|·???????????????????????????············|
+    3|·???????????????????????????············|
+    4|·    Rank     Name     Class············|
+    5|·                           · ? ?· ?   ·|
+    6|·P> Commodore Vasquez   Pil ·  ? ··    ·|
+    7|·C> Brigadier Okafor    Pil ·   ·· ? ? ·|
+    8|·1>   Colonel Brandt    Pil ·  ····??  ·|
+    9|·2>     Major Nakamura  Mar ·  ·····? ?·|
+   10|·3>   Colonel Kowalski  Mar ·  ?···??  ·|
+   11|·4>     Major Dubois    Sol · ???·· ?? ·|
+   12|·5> Commander Haddad    Sol ·  ??·???  ·|
+   13|·6>     Major Solveig   Esp ·? ??·???  ·|
+   14|·                           ·  ??·???? ·|
+   15|········································|
+   16|·#  Ammo    Ship's Guns                ·|
+   17|·1>  -    FMC Anti-Ion Cannon          ·|
+   18|·2>  -    `Thunderbolt' Plasma Cannon  ·|
+   19|·3>  -    Resonant Cavity EMP Cannon   ·|
+   20|·4>  -    Ion Cannon                   ·|
+   21|·5>  -    Multi-barrel Laser Cannon    ·|
+   22|·6>  3    Antimatter Missile           ·|
+   23|·                                      ·|
+   24|·            Press SPACEBAR            ·|
+   25|········································|
+shot VET-03_inspect_ship_3
+keys SPACE
+text [module STARPORT]
+    1|········································|
+    2|·???????????????????????????············|
+    3|·???????????????????????????············|
+    4|·    Rank     Name     Class············|
+    5|·                           · ? ?· ?   ·|
+    6|·P> Commodore Vasquez   Pil ·  ? ··    ·|
+    7|·C> Brigadier Okafor    Pil ·   ·· ? ? ·|
+    8|·1>   Colonel Brandt    Pil ·  ····??  ·|
+    9|·2>     Major Nakamura  Mar ·  ·····? ?·|
+   10|·3>   Colonel Kowalski  Mar ·  ?···??  ·|
+   11|·4>     Major Dubois    Sol · ???·· ?? ·|
+   12|·5> Commander Haddad    Sol ·  ??·???  ·|
+   13|·6>     Major Solveig   Esp ·? ??·???  ·|
+   14|·                           ·  ??·???? ·|
+   15|········································|
+   16|·#   Shield            Value           ·|
+   17|·                                      ·|
+   18|·1>  Variable Stasis Sh 150            ·|
+   19|·2>  Variable Stasis Sh 150            ·|
+   20|·3>  Variable Stasis Sh 150            ·|
+   21|·4>  Variable Stasis Sh 150            ·|
+   22|·                                      ·|
+   23|·                                      ·|
+   24|·            Press SPACEBAR            ·|
+   25|········································|
+shot VET-03_inspect_ship_4
+keys SPACE
+text [module STARPORT]
+    1|········································|
+    2|·???????????????????????????············|
+    3|·???????????????????????????············|
+    4|·    Rank     Name     Class············|
+    5|·                           · ? ?· ?   ·|
+    6|·P> Commodore Vasquez   Pil ·  ? ··    ·|
+    7|·C> Brigadier Okafor    Pil ·   ·· ? ? ·|
+    8|·1>   Colonel Brandt    Pil ·  ····??  ·|
+    9|·2>     Major Nakamura  Mar ·  ·····? ?·|
+   10|·3>   Colonel Kowalski  Mar ·  ?···??  ·|
+   11|·4>     Major Dubois    Sol · ???·· ?? ·|
+   12|·5> Commander Haddad    Sol ·  ??·???  ·|
+   13|·6>     Major Solveig   Esp ·? ??·???  ·|
+   14|·                           ·  ??·???? ·|
+   15|········································|
+   16|·                                      ·|
+   17|·                                      ·|
+   18|·Missle Killer.........  50 %          ·|
+   19|·                                      ·|
+   20|·                                      ·|
+   21|·Defense Hardware......  60 %          ·|
+   22|·                                      ·|
+   23|·                                      ·|
+   24|·            Press SPACEBAR            ·|
+   25|········································|
+shot VET-03_inspect_ship_5
+keys ENTER
+wait /Inspect Squad/ -> ok after 0.0 s [module STARPORT]
+keys b
+wait /Inspect Who/ -> ok after 0.0 s [module STARPORT]
+keys p
+wait /Commodore Vasquez/ -> ok after 0.0 s [module STARPORT]
+text [module STARPORT]
+    1|········································|
+    2|·???????????????????????????············|
+    3|·???????????????????????????············|
+    4|·    Rank     Name     Class············|
+    5|·                           · ? ?· ?   ·|
+    6|·P> Commodore Vasquez   Pil ·  ? ··    ·|
+    7|·C> Brigadier Okafor    Pil ·   ·· ? ? ·|
+    8|·1>   Colonel Brandt    Pil ·  ····??  ·|
+    9|·2>     Major Nakamura  Mar ·  ·····? ?·|
+   10|·3>   Colonel Kowalski  Mar ·  ?···??  ·|
+   11|·4>     Major Dubois    Sol · ???·· ?? ·|
+   12|·5> Commander Haddad    Sol ·  ??·???  ·|
+   13|·6>     Major Solveig   Esp ·? ??·???  ·|
+   14|·                           ·  ??·???? ·|
+   15|········································|
+   16|·Commodore Vasquez   Pilot             ·|
+   17|· 38 yr 0 mo   HP 45 / 45    Okay      ·|
+   18|·                                      ·|
+   19|·Strength.......88  Willpower......92  ·|
+   20|·Speed..........96  Esper..........31  ·|
+   21|·Accuracy.......95  Intelligence...97  ·|
+   22|·Courage........90                     ·|
+   23|·                                      ·|
+   24|·            Press SPACEBAR            ·|
+   25|········································|
+keys SPACE
+text [module STARPORT]
+    1|········································|
+    2|·???????????????????????????············|
+    3|·???????????????????????????············|
+    4|·    Rank     Name     Class············|
+    5|·                           · ? ?· ?   ·|
+    6|·P> Commodore Vasquez   Pil ·  ? ··    ·|
+    7|·C> Brigadier Okafor    Pil ·   ·· ? ? ·|
+    8|·1>   Colonel Brandt    Pil ·  ····??  ·|
+    9|·2>     Major Nakamura  Mar ·  ·····? ?·|
+   10|·3>   Colonel Kowalski  Mar ·  ?···??  ·|
+   11|·4>     Major Dubois    Sol · ???·· ?? ·|
+   12|·5> Commander Haddad    Sol ·  ??·???  ·|
+   13|·6>     Major Solveig   Esp ·? ??·???  ·|
+   14|·                           ·  ??·???? ·|
+   15|········································|
+   16|·Commodore Vasquez   Pilot             ·|
+   17|·                                      ·|
+   18|·To Hit Bonus...+21    Non-Esper       ·|
+   19|·Defense Bonus..+23                    ·|
+   20|·Max. Carried...30 kg                  ·|
+   21|·Weight Carried.15 kg                  ·|
+   22|·Max. Movement..24                     ·|
+   23|·Movement.......24                     ·|
+   24|·            Press SPACEBAR            ·|
+   25|········································|
+keys SPACE
+text [module STARPORT]
+    1|········································|
+    2|·???????????????????????????············|
+    3|·???????????????????????????············|
+    4|·    Rank     Name     Class············|
+    5|·                           · ? ?· ?   ·|
+    6|·P> Commodore Vasquez   Pil ·  ? ··    ·|
+    7|·C> Brigadier Okafor    Pil ·   ·· ? ? ·|
+    8|·1>   Colonel Brandt    Pil ·  ····??  ·|
+    9|·2>     Major Nakamura  Mar ·  ·····? ?·|
+   10|·3>   Colonel Kowalski  Mar ·  ?···??  ·|
+   11|·4>     Major Dubois    Sol · ???·· ?? ·|
+   12|·5> Commander Haddad    Sol ·  ??·???  ·|
+   13|·6>     Major Solveig   Esp ·? ??·???  ·|
+   14|·                           ·  ??·???? ·|
+   15|········································|
+   16|·Commodore Vasquez   Pilot             ·|
+   17|·                                      ·|
+   18|·Pilot............8  Code Breaking....6·|
+   19|·Astro Gunner.....8  Light Arms.......7·|
+   20|·Scouting/Recon...0  Heavy Arms.......0·|
+   21|·Medical..........5  Ship Repair......6·|
+   22|·Explosives.......0  Esper............0·|
+   23|·Chemical Weaponry0  Hand Weaponry....0·|
+   24|·            Press SPACEBAR            ·|
+   25|········································|
+keys SPACE
+text [module STARPORT]
+    1|········································|
+    2|·???????????????????????????············|
+    3|·???????????????????????????············|
+    4|·    Rank     Name     Class············|
+    5|·                           · ? ?· ?   ·|
+    6|·P> Commodore Vasquez   Pil ·  ? ··    ·|
+    7|·C> Brigadier Okafor    Pil ·   ·· ? ? ·|
+    8|·1>   Colonel Brandt    Pil ·  ····??  ·|
+    9|·2>     Major Nakamura  Mar ·  ·····? ?·|
+   10|·3>   Colonel Kowalski  Mar ·  ?···??  ·|
+   11|·4>     Major Dubois    Sol · ???·· ?? ·|
+   12|·5> Commander Haddad    Sol ·  ??·???  ·|
+   13|·6>     Major Solveig   Esp ·? ??·???  ·|
+   14|·                           ·  ??·???? ·|
+   15|········································|
+   16|·Commodore Vasquez   Pilot             ·|
+   17|·                                      ·|
+   18|·Armor.............. 15 / 15           ·|
+   19|·Sighting Hardware.. 35 %              ·|
+   20|·Clones............. 0                 ·|
+   21|·Hand Weapon........ 20 pts            ·|
+   22|·                                      ·|
+   23|·                                      ·|
+   24|·            Press SPACEBAR            ·|
+   25|········································|
+keys SPACE
+text [module STARPORT]
+    1|········································|
+    2|·???????????????????????????············|
+    3|·???????????????????????????············|
+    4|·    Rank     Name     Class············|
+    5|·                           · ? ?· ?   ·|
+    6|·P> Commodore Vasquez   Pil ·  ? ··    ·|
+    7|·C> Brigadier Okafor    Pil ·   ·· ? ? ·|
+    8|·1>   Colonel Brandt    Pil ·  ····??  ·|
+    9|·2>     Major Nakamura  Mar ·  ·····? ?·|
+   10|·3>   Colonel Kowalski  Mar ·  ?···??  ·|
+   11|·4>     Major Dubois    Sol · ???·· ?? ·|
+   12|·5> Commander Haddad    Sol ·  ??·???  ·|
+   13|·6>     Major Solveig   Esp ·? ??·???  ·|
+   14|·                           ·  ??·???? ·|
+   15|········································|
+   16|· Reloads   Vasquez's weapons          ·|
+   17|·                                      ·|
+   18|· 3      2.5mm Gauss Rifle             ·|
+   19|·                                      ·|
+   20|·                                      ·|
+   21|·                                      ·|
+   22|·                                      ·|
+   23|·                                      ·|
+   24|·            Press SPACEBAR            ·|
+   25|········································|
+keys SPACE
+text [module STARPORT]
+    1|········································|
+    2|·???????????????????????????············|
+    3|·???????????????????????????············|
+    4|·    Rank     Name     Class············|
+    5|·                           · ? ?· ?   ·|
+    6|·P> Commodore Vasquez   Pil ·  ? ··    ·|
+    7|·C> Brigadier Okafor    Pil ·   ·· ? ? ·|
+    8|·1>   Colonel Brandt    Pil ·  ····??  ·|
+    9|·2>     Major Nakamura  Mar ·  ·····? ?·|
+   10|·3>   Colonel Kowalski  Mar ·  ?···??  ·|
+   11|·4>     Major Dubois    Sol · ???·· ?? ·|
+   12|·5> Commander Haddad    Sol ·  ??·???  ·|
+   13|·6>     Major Solveig   Esp ·? ??·???  ·|
+   14|·                           ·  ??·???? ·|
+   15|········································|
+   16|·                                      ·|
+   17|·                                      ·|
+   18|·                                      ·|
+   19|·                                      ·|
+   20|·Inspect Who?                          ·|
+   21|·                                      ·|
+   22|·                                      ·|
+   23|·                                      ·|
+   24|·                                      ·|
+   25|········································|
+keys SPACE
+wait /Inspect Who/ -> ok after 0.0 s [module STARPORT]
+keys c
+wait /Brigadier Okafor/ -> ok after 0.0 s [module STARPORT]
+keys SPACE
+text [module STARPORT]
+    1|········································|
+    2|·???????????????????????????············|
+    3|·???????????????????????????············|
+    4|·    Rank     Name     Class············|
+    5|·                           · ? ?· ?   ·|
+    6|·P> Commodore Vasquez   Pil ·  ? ··    ·|
+    7|·C> Brigadier Okafor    Pil ·   ·· ? ? ·|
+    8|·1>   Colonel Brandt    Pil ·  ····??  ·|
+    9|·2>     Major Nakamura  Mar ·  ·····? ?·|
+   10|·3>   Colonel Kowalski  Mar ·  ?···??  ·|
+   11|·4>     Major Dubois    Sol · ???·· ?? ·|
+   12|·5> Commander Haddad    Sol ·  ??·???  ·|
+   13|·6>     Major Solveig   Esp ·? ??·???  ·|
+   14|·                           ·  ??·???? ·|
+   15|········································|
+   16|·Brigadier Okafor   Pilot              ·|
+   17|·                                      ·|
+   18|·To Hit Bonus...+20    Non-Esper       ·|
+   19|·Defense Bonus..+20                    ·|
+   20|·Max. Carried...29 kg                  ·|
+   21|·Weight Carried.15 kg                  ·|
+   22|·Max. Movement..23                     ·|
+   23|·Movement.......23                     ·|
+   24|·            Press SPACEBAR            ·|
+   25|········································|
+keys SPACE SPACE SPACE SPACE SPACE
+wait /Inspect Who/ -> ok after 0.0 s [module STARPORT]
+keys 1
+wait /Colonel Brandt/ -> ok after 0.0 s [module STARPORT]
+keys SPACE SPACE SPACE SPACE
+text [module STARPORT]
+    1|········································|
+    2|·???????????????????????????············|
+    3|·???????????????????????????············|
+    4|·    Rank     Name     Class············|
+    5|·                           · ? ?· ?   ·|
+    6|·P> Commodore Vasquez   Pil ·  ? ··    ·|
+    7|·C> Brigadier Okafor    Pil ·   ·· ? ? ·|
+    8|·1>   Colonel Brandt    Pil ·  ····??  ·|
+    9|·2>     Major Nakamura  Mar ·  ·····? ?·|
+   10|·3>   Colonel Kowalski  Mar ·  ?···??  ·|
+   11|·4>     Major Dubois    Sol · ???·· ?? ·|
+   12|·5> Commander Haddad    Sol ·  ??·???  ·|
+   13|·6>     Major Solveig   Esp ·? ??·???  ·|
+   14|·                           ·  ??·???? ·|
+   15|········································|
+   16|·Colonel Brandt   Pilot                ·|
+   17|·Environment Suit                      ·|
+   18|·Oxygen Mask                           ·|
+   19|·Oxygen Cylinder                       ·|
+   20|·Sonic Torch                           ·|
+   21|·                                      ·|
+   22|·                                      ·|
+   23|·                                      ·|
+   24|·            Press SPACEBAR            ·|
+   25|········································|
+keys SPACE
+text [module STARPORT]
+    1|········································|
+    2|·???????????????????????????············|
+    3|·???????????????????????????············|
+    4|·    Rank     Name     Class············|
+    5|·                           · ? ?· ?   ·|
+    6|·P> Commodore Vasquez   Pil ·  ? ··    ·|
+    7|·C> Brigadier Okafor    Pil ·   ·· ? ? ·|
+    8|·1>   Colonel Brandt    Pil ·  ····??  ·|
+    9|·2>     Major Nakamura  Mar ·  ·····? ?·|
+   10|·3>   Colonel Kowalski  Mar ·  ?···??  ·|
+   11|·4>     Major Dubois    Sol · ???·· ?? ·|
+   12|·5> Commander Haddad    Sol ·  ??·???  ·|
+   13|·6>     Major Solveig   Esp ·? ??·???  ·|
+   14|·                           ·  ??·???? ·|
+   15|········································|
+   16|· Reloads   Brandt's weapons           ·|
+   17|·                                      ·|
+   18|· 3      2.5mm Gauss Rifle             ·|
+   19|·                                      ·|
+   20|·                                      ·|
+   21|·                                      ·|
+   22|·                                      ·|
+   23|·                                      ·|
+   24|·            Press SPACEBAR            ·|
+   25|········································|
+keys SPACE
+wait /Inspect Who/ -> ok after 0.0 s [module STARPORT]
+keys 2
+wait /Major Nakamura/ -> ok after 0.0 s [module STARPORT]
+keys SPACE SPACE
+text [module STARPORT]
+    1|········································|
+    2|·???????????????????????????············|
+    3|·???????????????????????????············|
+    4|·    Rank     Name     Class············|
+    5|·                           · ? ?· ?   ·|
+    6|·P> Commodore Vasquez   Pil ·  ? ··    ·|
+    7|·C> Brigadier Okafor    Pil ·   ·· ? ? ·|
+    8|·1>   Colonel Brandt    Pil ·  ····??  ·|
+    9|·2>     Major Nakamura  Mar ·  ·····? ?·|
+   10|·3>   Colonel Kowalski  Mar ·  ?···??  ·|
+   11|·4>     Major Dubois    Sol · ???·· ?? ·|
+   12|·5> Commander Haddad    Sol ·  ??·???  ·|
+   13|·6>     Major Solveig   Esp ·? ??·???  ·|
+   14|·                           ·  ??·???? ·|
+   15|········································|
+   16|·Major Nakamura   Marine               ·|
+   17|·                                      ·|
+   18|·Pilot............0  Code Breaking....0·|
+   19|·Astro Gunner.....0  Light Arms.......7·|
+   20|·Scouting/Recon...7  Heavy Arms.......8·|
+   21|·Medical..........8  Ship Repair......0·|
+   22|·Explosives.......0  Esper............0·|
+   23|·Chemical Weaponry0  Hand Weaponry....7·|
+   24|·            Press SPACEBAR            ·|
+   25|········································|
+keys SPACE SPACE
+text [module STARPORT]
+    1|········································|
+    2|·???????????????????????????············|
+    3|·???????????????????????????············|
+    4|·    Rank     Name     Class············|
+    5|·                           · ? ?· ?   ·|
+    6|·P> Commodore Vasquez   Pil ·  ? ··    ·|
+    7|·C> Brigadier Okafor    Pil ·   ·· ? ? ·|
+    8|·1>   Colonel Brandt    Pil ·  ····??  ·|
+    9|·2>     Major Nakamura  Mar ·  ·····? ?·|
+   10|·3>   Colonel Kowalski  Mar ·  ?···??  ·|
+   11|·4>     Major Dubois    Sol · ???·· ?? ·|
+   12|·5> Commander Haddad    Sol ·  ??·???  ·|
+   13|·6>     Major Solveig   Esp ·? ??·???  ·|
+   14|·                           ·  ??·???? ·|
+   15|········································|
+   16|·Major Nakamura   Marine               ·|
+   17|·Environment Suit                      ·|
+   18|·Oxygen Mask                           ·|
+   19|·Oxygen Cylinder                       ·|
+   20|·Medkit                                ·|
+   21|·Medkit                                ·|
+   22|·                                      ·|
+   23|·                                      ·|
+   24|·            Press SPACEBAR            ·|
+   25|········································|
+keys SPACE
+text [module STARPORT]
+    1|········································|
+    2|·???????????????????????????············|
+    3|·???????????????????????????············|
+    4|·    Rank     Name     Class············|
+    5|·                           · ? ?· ?   ·|
+    6|·P> Commodore Vasquez   Pil ·  ? ··    ·|
+    7|·C> Brigadier Okafor    Pil ·   ·· ? ? ·|
+    8|·1>   Colonel Brandt    Pil ·  ····??  ·|
+    9|·2>     Major Nakamura  Mar ·  ·····? ?·|
+   10|·3>   Colonel Kowalski  Mar ·  ?···??  ·|
+   11|·4>     Major Dubois    Sol · ???·· ?? ·|
+   12|·5> Commander Haddad    Sol ·  ??·???  ·|
+   13|·6>     Major Solveig   Esp ·? ??·???  ·|
+   14|·                           ·  ??·???? ·|
+   15|········································|
+   16|· Reloads   Nakamura's weapons         ·|
+   17|·                                      ·|
+   18|· 2      Freq. Agile Sniping Laser     ·|
+   19|·                                      ·|
+   20|·                                      ·|
+   21|·                                      ·|
+   22|·                                      ·|
+   23|·                                      ·|
+   24|·            Press SPACEBAR            ·|
+   25|········································|
+keys SPACE
+wait /Inspect Who/ -> ok after 0.0 s [module STARPORT]
+keys 4
+wait /Major Dubois/ -> ok after 0.0 s [module STARPORT]
+text [module STARPORT]
+    1|········································|
+    2|·???????????????????????????············|
+    3|·???????????????????????????············|
+    4|·    Rank     Name     Class············|
+    5|·                           · ? ?· ?   ·|
+    6|·P> Commodore Vasquez   Pil ·  ? ··    ·|
+    7|·C> Brigadier Okafor    Pil ·   ·· ? ? ·|
+    8|·1>   Colonel Brandt    Pil ·  ····??  ·|
+    9|·2>     Major Nakamura  Mar ·  ·····? ?·|
+   10|·3>   Colonel Kowalski  Mar ·  ?···??  ·|
+   11|·4>     Major Dubois    Sol · ???·· ?? ·|
+   12|·5> Commander Haddad    Sol ·  ??·???  ·|
+   13|·6>     Major Solveig   Esp ·? ??·???  ·|
+   14|·                           ·  ??·???? ·|
+   15|········································|
+   16|·Major Dubois   Soldier                ·|
+   17|· 33 yr 0 mo   HP 48 / 48    Okay      ·|
+   18|·                                      ·|
+   19|·Strength.......98  Willpower......96  ·|
+   20|·Speed..........95  Esper..........25  ·|
+   21|·Accuracy.......96  Intelligence...90  ·|
+   22|·Courage........97                     ·|
+   23|·                                      ·|
+   24|·            Press SPACEBAR            ·|
+   25|········································|
+shot VET-04_inspect_squad_1
+keys SPACE
+text [module STARPORT]
+    1|········································|
+    2|·???????????????????????????············|
+    3|·???????????????????????????············|
+    4|·    Rank     Name     Class············|
+    5|·                           · ? ?· ?   ·|
+    6|·P> Commodore Vasquez   Pil ·  ? ··    ·|
+    7|·C> Brigadier Okafor    Pil ·   ·· ? ? ·|
+    8|·1>   Colonel Brandt    Pil ·  ····??  ·|
+    9|·2>     Major Nakamura  Mar ·  ·····? ?·|
+   10|·3>   Colonel Kowalski  Mar ·  ?···??  ·|
+   11|·4>     Major Dubois    Sol · ???·· ?? ·|
+   12|·5> Commander Haddad    Sol ·  ??·???  ·|
+   13|·6>     Major Solveig   Esp ·? ??·???  ·|
+   14|·                           ·  ??·???? ·|
+   15|········································|
+   16|·Major Dubois   Soldier                ·|
+   17|·                                      ·|
+   18|·To Hit Bonus...+23    Non-Esper       ·|
+   19|·Defense Bonus..+22                    ·|
+   20|·Max. Carried...32 kg                  ·|
+   21|·Weight Carried.28 kg                  ·|
+   22|·Max. Movement..24                     ·|
+   23|·Movement.......24                     ·|
+   24|·            Press SPACEBAR            ·|
+   25|········································|
+shot VET-04_inspect_squad_2
+keys SPACE
+text [module STARPORT]
+    1|········································|
+    2|·???????????????????????????············|
+    3|·???????????????????????????············|
+    4|·    Rank     Name     Class············|
+    5|·                           · ? ?· ?   ·|
+    6|·P> Commodore Vasquez   Pil ·  ? ··    ·|
+    7|·C> Brigadier Okafor    Pil ·   ·· ? ? ·|
+    8|·1>   Colonel Brandt    Pil ·  ····??  ·|
+    9|·2>     Major Nakamura  Mar ·  ·····? ?·|
+   10|·3>   Colonel Kowalski  Mar ·  ?···??  ·|
+   11|·4>     Major Dubois    Sol · ???·· ?? ·|
+   12|·5> Commander Haddad    Sol ·  ??·???  ·|
+   13|·6>     Major Solveig   Esp ·? ??·???  ·|
+   14|·                           ·  ??·???? ·|
+   15|········································|
+   16|·Major Dubois   Soldier                ·|
+   17|·                                      ·|
+   18|·Pilot............0  Code Breaking....0·|
+   19|·Astro Gunner.....0  Light Arms.......7·|
+   20|·Scouting/Recon...0  Heavy Arms.......8·|
+   21|·Medical..........5  Ship Repair......0·|
+   22|·Explosives.......8  Esper............0·|
+   23|·Chemical Weaponry6  Hand Weaponry....7·|
+   24|·            Press SPACEBAR            ·|
+   25|········································|
+shot VET-04_inspect_squad_3
+keys SPACE
+text [module STARPORT]
+    1|········································|
+    2|·???????????????????????????············|
+    3|·???????????????????????????············|
+    4|·    Rank     Name     Class············|
+    5|·                           · ? ?· ?   ·|
+    6|·P> Commodore Vasquez   Pil ·  ? ··    ·|
+    7|·C> Brigadier Okafor    Pil ·   ·· ? ? ·|
+    8|·1>   Colonel Brandt    Pil ·  ····??  ·|
+    9|·2>     Major Nakamura  Mar ·  ·····? ?·|
+   10|·3>   Colonel Kowalski  Mar ·  ?···??  ·|
+   11|·4>     Major Dubois    Sol · ???·· ?? ·|
+   12|·5> Commander Haddad    Sol ·  ??·???  ·|
+   13|·6>     Major Solveig   Esp ·? ??·???  ·|
+   14|·                           ·  ??·???? ·|
+   15|········································|
+   16|·Major Dubois   Soldier                ·|
+   17|·                                      ·|
+   18|·Armor.............. 15 / 15           ·|
+   19|·Sighting Hardware.. 35 %              ·|
+   20|·Clones............. 0                 ·|
+   21|·Hand Weapon........ 20 pts            ·|
+   22|·                                      ·|
+   23|·                                      ·|
+   24|·            Press SPACEBAR            ·|
+   25|········································|
+shot VET-04_inspect_squad_4
+keys SPACE
+text [module STARPORT]
+    1|········································|
+    2|·???????????????????????????············|
+    3|·???????????????????????????············|
+    4|·    Rank     Name     Class············|
+    5|·                           · ? ?· ?   ·|
+    6|·P> Commodore Vasquez   Pil ·  ? ··    ·|
+    7|·C> Brigadier Okafor    Pil ·   ·· ? ? ·|
+    8|·1>   Colonel Brandt    Pil ·  ····??  ·|
+    9|·2>     Major Nakamura  Mar ·  ·····? ?·|
+   10|·3>   Colonel Kowalski  Mar ·  ?···??  ·|
+   11|·4>     Major Dubois    Sol · ???·· ?? ·|
+   12|·5> Commander Haddad    Sol ·  ??·???  ·|
+   13|·6>     Major Solveig   Esp ·? ??·???  ·|
+   14|·                           ·  ??·???? ·|
+   15|········································|
+   16|·Major Dubois   Soldier                ·|
+   17|·Environment Suit                      ·|
+   18|·Oxygen Mask                           ·|
+   19|·Oxygen Cylinder                       ·|
+   20|·Lockpick Set                          ·|
+   21|·                                      ·|
+   22|·                                      ·|
+   23|·                                      ·|
+   24|·            Press SPACEBAR            ·|
+   25|········································|
+shot VET-04_inspect_squad_5
+keys SPACE
+text [module STARPORT]
+    1|········································|
+    2|·???????????????????????????············|
+    3|·???????????????????????????············|
+    4|·    Rank     Name     Class············|
+    5|·                           · ? ?· ?   ·|
+    6|·P> Commodore Vasquez   Pil ·  ? ··    ·|
+    7|·C> Brigadier Okafor    Pil ·   ·· ? ? ·|
+    8|·1>   Colonel Brandt    Pil ·  ····??  ·|
+    9|·2>     Major Nakamura  Mar ·  ·····? ?·|
+   10|·3>   Colonel Kowalski  Mar ·  ?···??  ·|
+   11|·4>     Major Dubois    Sol · ???·· ?? ·|
+   12|·5> Commander Haddad    Sol ·  ??·???  ·|
+   13|·6>     Major Solveig   Esp ·? ??·???  ·|
+   14|·                           ·  ??·???? ·|
+   15|········································|
+   16|· Reloads   Dubois's weapons           ·|
+   17|·                                      ·|
+   18|· 2      40mm `Panzerjaeger' RL        ·|
+   19|· 4      Neutron Grenade               ·|
+   20|·                                      ·|
+   21|·                                      ·|
+   22|·                                      ·|
+   23|·                                      ·|
+   24|·            Press SPACEBAR            ·|
+   25|········································|
+shot VET-04_inspect_squad_6
+keys SPACE
+wait /Inspect Who/ -> ok after 0.0 s [module STARPORT]
+keys 6
+wait /Major Solveig/ -> ok after 0.0 s [module STARPORT]
+keys SPACE SPACE
+text [module STARPORT]
+    1|········································|
+    2|·???????????????????????????············|
+    3|·???????????????????????????············|
+    4|·    Rank     Name     Class············|
+    5|·                           · ? ?· ?   ·|
+    6|·P> Commodore Vasquez   Pil ·  ? ··    ·|
+    7|·C> Brigadier Okafor    Pil ·   ·· ? ? ·|
+    8|·1>   Colonel Brandt    Pil ·  ····??  ·|
+    9|·2>     Major Nakamura  Mar ·  ·····? ?·|
+   10|·3>   Colonel Kowalski  Mar ·  ?···??  ·|
+   11|·4>     Major Dubois    Sol · ???·· ?? ·|
+   12|·5> Commander Haddad    Sol ·  ??·???  ·|
+   13|·6>     Major Solveig   Esp ·? ??·???  ·|
+   14|·                           ·  ??·???? ·|
+   15|········································|
+   16|·Major Solveig   Esper                 ·|
+   17|·                                      ·|
+   18|·Pilot............0  Code Breaking....0·|
+   19|·Astro Gunner.....7  Light Arms.......8·|
+   20|·Scouting/Recon...0  Heavy Arms.......0·|
+   21|·Medical..........6  Ship Repair......0·|
+   22|·Explosives.......0  Esper............8·|
+   23|·Chemical Weaponry0  Hand Weaponry....8·|
+   24|·            Press SPACEBAR            ·|
+   25|········································|
+keys SPACE
+text [module STARPORT]
+    1|········································|
+    2|·???????????????????????????············|
+    3|·???????????????????????????············|
+    4|·    Rank     Name     Class············|
+    5|·                           · ? ?· ?   ·|
+    6|·P> Commodore Vasquez   Pil ·  ? ··    ·|
+    7|·C> Brigadier Okafor    Pil ·   ·· ? ? ·|
+    8|·1>   Colonel Brandt    Pil ·  ····??  ·|
+    9|·2>     Major Nakamura  Mar ·  ·····? ?·|
+   10|·3>   Colonel Kowalski  Mar ·  ?···??  ·|
+   11|·4>     Major Dubois    Sol · ???·· ?? ·|
+   12|·5> Commander Haddad    Sol ·  ??·???  ·|
+   13|·6>     Major Solveig   Esp ·? ??·???  ·|
+   14|·                           ·  ??·???? ·|
+   15|········································|
+   16|·Major Solveig   Esper                 ·|
+   17|·                                      ·|
+   18|·Armor.............. 15 / 15           ·|
+   19|·Sighting Hardware.. 35 %              ·|
+   20|·Clones............. 0                 ·|
+   21|·Hand Weapon........ 40 pts            ·|
+   22|·                                      ·|
+   23|·                                      ·|
+   24|·            Press SPACEBAR            ·|
+   25|········································|
+keys SPACE SPACE
+text [module STARPORT]
+    1|········································|
+    2|·???????????????????????????············|
+    3|·???????????????????????????············|
+    4|·    Rank     Name     Class············|
+    5|·                           · ? ?· ?   ·|
+    6|·P> Commodore Vasquez   Pil ·  ? ··    ·|
+    7|·C> Brigadier Okafor    Pil ·   ·· ? ? ·|
+    8|·1>   Colonel Brandt    Pil ·  ····??  ·|
+    9|·2>     Major Nakamura  Mar ·  ·····? ?·|
+   10|·3>   Colonel Kowalski  Mar ·  ?···??  ·|
+   11|·4>     Major Dubois    Sol · ???·· ?? ·|
+   12|·5> Commander Haddad    Sol ·  ??·???  ·|
+   13|·6>     Major Solveig   Esp ·? ??·???  ·|
+   14|·                           ·  ??·???? ·|
+   15|········································|
+   16|· Reloads   Solveig's weapons          ·|
+   17|·                                      ·|
+   18|· 3      2.5mm Gauss Rifle             ·|
+   19|·                                      ·|
+   20|·                                      ·|
+   21|·                                      ·|
+   22|·                                      ·|
+   23|·                                      ·|
+   24|·            Press SPACEBAR            ·|
+   25|········································|
+keys SPACE
+wait /Inspect Who/ -> ok after 0.0 s [module STARPORT]
+keys ENTER
+wait /Inspect Squad/ -> ok after 0.0 s [module STARPORT]
+keys ENTER
+wait /Main Menu/ -> ok after 0.0 s [module STARPORT]
+keys h
+wait /review/ -> ok after 0.0 s [module STARPORT]
+keys y
+wait /vaccine/ -> ok after 0.0 s [module STARPORT]
+text [module STARPORT]
+    1|········································|
+    2|·???????????????????????????············|
+    3|·???????????????????????????············|
+    4|·    Rank     Name     Class············|
+    5|·                           · ? ?· ?   ·|
+    6|·P> Commodore Vasquez   Pil ·  ? ··    ·|
+    7|·C> Brigadier Okafor    Pil ·   ·· ? ? ·|
+    8|·1>   Colonel Brandt    Pil ·  ····??  ·|
+    9|·2>     Major Nakamura  Mar ·  ·····? ?·|
+   10|·3>   Colonel Kowalski  Mar ·  ?···??  ·|
+   11|·4>     Major Dubois    Sol · ???·· ?? ·|
+   12|·5> Commander Haddad    Sol ·  ??·???  ·|
+   13|·6>     Major Solveig   Esp ·? ??·???  ·|
+   14|·                           ·  ??·???? ·|
+   15|········································|
+   16|·Welcome new recruits! Your first      ·|
+   17|·mission is to pick up a badly         ·|
+   18|·needed shipment of vaccine from       ·|
+   19|·our lab on planet 7 of star 5         ·|
+   20|·in sector (23,29).  Deliver it        ·|
+   21|·to the mining colony on planet 2      ·|
+   22|·                                      ·|
+   23|·                                      ·|
+   24|·Press ENTER Key                       ·|
+   25|········································|
+shot VET-05_hq_mission
+keys ENTER
+wait /short/ -> ok after 0.0 s [module STARPORT]
+keys ENTER
+wait /Main Menu/ -> ok after 0.0 s [module STARPORT]
+keys g
+wait /Quit the game/ -> ok after 0.0 s [module STARPORT]
+text [module STARPORT]
+    1|········································|
+    2|·???????????????????????????············|
+    3|·???????????????????????????············|
+    4|·    Rank     Name     Class············|
+    5|·                           · ? ?· ?   ·|
+    6|·P> Commodore Vasquez   Pil ·  ? ··    ·|
+    7|·C> Brigadier Okafor    Pil ·   ·· ? ? ·|
+    8|·1>   Colonel Brandt    Pil ·  ····??  ·|
+    9|·2>     Major Nakamura  Mar ·  ·····? ?·|
+   10|·3>   Colonel Kowalski  Mar ·  ?···??  ·|
+   11|·4>     Major Dubois    Sol · ???·· ?? ·|
+   12|·5> Commander Haddad    Sol ·  ??·???  ·|
+   13|·6>     Major Solveig   Esp ·? ??·???  ·|
+   14|·                           ·  ??·???? ·|
+   15|········································|
+   16|·                                      ·|
+   17|·                                      ·|
+   18|·                                      ·|
+   19|·                                      ·|
+   20|·Quit the game? (Y/N)                  ·|
+   21|·                                      ·|
+   22|·                                      ·|
+   23|·                                      ·|
+   24|·                                      ·|
+   25|········································|
+keys n
+wait /Main Menu/ -> ok after 0.0 s [module STARPORT]
+keys l
+wait /SELECT ONE/ -> ok after 0.0 s [module SPACE]
+text [module SPACE]
+    1|········································|
+    2|··  (29,30) ZN:N  ············· ····· ··|
+    3|··         ··?    ··············? ? ?···|
+    4|··             ·· ··FUEL: 400· ·  ·  · ·|
+    5|···?   · ·???   ·············· · ··· · ·|
+    6|··      ·· ·?· ?· ··ARMOR:999· · ··· · ·|
+    7|··        ?? ·?   ··············? ? ?···|
+    8|··??????????···   ··  GREEN  ·· ····· ··|
+    9|· ··· ·  ?     ·   ·····················|
+   10|· ?  ·?·? ?        ·    NAME    AM RL ··|
+   11|· ?··· ? ·         ·P>Vasquez         ··|
+   12|·····??           ··C>Okafor          ··|
+   13|···· ? ·          ··1>Brandt    Okay  ··|
+   14|····?  ·?         ··2>Nakamura  Okay  ··|
+   15|··??·   ·         ··3>Kowalski  Okay  ··|
+   16|··???· ?          ··4>Dubois    Okay  ··|
+   17|··?· ·            ··5>Haddad    Okay  ··|
+   18|··                ··6>Solveig    4  3 ··|
+   19|········································|
+   20|··A-Up Scan    B-Switch        ??     ··|
+   21|· C-Computer   D-Down Scan    ????     ·|
+   22|· E-Equip      F-Fix          ????     ·|
+   23|· H-Heal       I-Inspect       ??      ·|
+   24|··J-Time Delay L-Load     SELECT ONE  ··|
+   25|········································|
+shot VET-06_space
+eval [E.currentModule, E.state.G[2200], E.state.G[55], E.state.G[82], E.state.G[2227]] = ["SPACE",400,1000,6,1]
+eval (() => { const G = E.state.G; G[2214] = 0; G[2229] = 0; G[2228] = 1; G[2252] = 1; G[2250] = 10; G[2260] = 0; const ik = E.input.inkey.bind(E.input); E.input.inkey = () => { E.input.inkey = ik; return E.chain('PLBATTLE.STR'); }; return 'armed'; })() = "armed"
+wait /GROUND COMBAT/ -> ok after 0.3 s [module PLBATTLE]
+text [module PLBATTLE]
+    1|             GROUND COMBAT              |
+    2|                                        |
+    3|Gravity: 1       Fatigue Factor: 1      |
+    4|Atmosphere: Breathable                  |
+    5|Location of combat: Plains              |
+    6|                                        |
+    7| Typical Inacessable Defensive Offensive|
+    8|   Area      Area      Area      Area   |
+    9|                                        |
+   10|  ······    ······    ······    ······  |
+   11|  ······    ······    ······    ······  |
+   12|  ······    ······    ······    ······  |
+   13|  ······    ······    ······    ······  |
+   14|  ······    ······    ······    ······  |
+   15|  ······    ······    ······    ······  |
+   16|To escape the combat walk off the map.  |
+   17|                                        |
+   18|                                        |
+   19|Group A: 3 Service Unit(s)              |
+   20|Group B: 4 Service Unit(s)              |
+   21|Group C: 3 Service Unit(s)              |
+   22|Group D: 1 Service Unit                 |
+   23|Squad movement: 5 squares per turn      |
+   24|                                        |
+   25|Press ENTER Key                         |
+shot VET-07_plbattle_briefing
+keys ENTER
+wait /communications/ -> ok after 0.0 s [module PLBATTLE]
+keys n w:2500 b w:1500 b w:1500 b w:1500 b w:1500 b w:1500
+wait /ENTER to accept/ -> ok after 0.0 s [module PLBATTLE]
+text [module PLBATTLE]
+    1|········································|
+    2|·B Service  ····························|
+    3|·    Unit   ········    ················|
+    4|····················    ················|
+    5|······················  ················|
+    6|······················  ················|
+    7|····················    ················|
+    8|····················    ········D·······|
+    9|··· ············        ··········AB····|
+   10|················        ················|
+   11|·······························C········|
+   12|································?·······|
+   13|·1>Brandt   45  Okay 9:3················|
+   14|·2>Nakamura 47  Okay 9:2················|
+   15|·3>Kowalski 49  Okay 9:2················|
+   16|·4>Dubois   48  Okay 9:2················|
+   17|·5>Haddad   47  Okay 9:2················|
+   18|·6>Solveig  46  Okay 9:3················|
+   19|········································|
+   20|·        Brandt   [ 64 ]               ·|
+   21|·Groups In Range: D C B A              ·|
+   22|·Command: Attack on A1                 ·|
+   23|·ENTER to accept   A-D  1-5 to retarget·|
+   24|·W-ait F-Attack R-apid L-oad M-Aim E-sp·|
+   25|········································|
+shot VET-08_plbattle_command
+keys ENTER w:1500
+text [module PLBATTLE]
+    1|········································|
+    2|·C Service  ····························|
+    3|·    Unit   ········    ················|
+    4|····················    ················|
+    5|······················  ················|
+    6|······················  ················|
+    7|····················    ················|
+    8|····················    ········D·······|
+    9|··· ············        ··········AB····|
+   10|················        ················|
+   11|·······························C········|
+   12|································?·······|
+   13|·1>Brandt   45  Okay 9:3················|
+   14|·2>Nakamura 47  Okay 9:2················|
+   15|·3>Kowalski 49  Okay 9:2················|
+   16|·4>Dubois   48  Okay 9:2················|
+   17|·5>Haddad   47  Okay 9:2················|
+   18|·6>Solveig  46  Okay 9:3················|
+   19|········································|
+   20|·        Nakamura   [ 64 ]             ·|
+   21|·Groups In Range: D C B A              ·|
+   22|·Command: Attack on A1                 ·|
+   23|·ENTER to accept   A-D  1-5 to retarget·|
+   24|·W-ait F-Attack R-apid L-oad M-Aim E-sp·|
+   25|········································|
+eval [E.currentModule, document.title] = ["PLBATTLE","Star Command"]
+plan finished, 0 wait failures

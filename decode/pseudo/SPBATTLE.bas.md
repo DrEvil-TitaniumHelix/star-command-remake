@@ -1,0 +1,2825 @@
+# SPBATTLE — BASIC-style pseudocode (lane mod-spbattle) — COMPLETE
+
+Evidence: `decode/listings/SPBATTLE.lst` (regenerated after rt-naming), `decode/data/MODULE_CONSTANTS.md` (SPBATTLE.EXE section), `decode/data/tools/_SPBATTLE.json` (literal table, code end 0x7450), `decode/brun30/RT_LEDGER.md`, `decode/data/SPRITES.md` (SPBTSH.BAS, ENSHP-n.BAS, SPACESH.BAS inventories), `decode/data/DATA_FILES.md` (ENCLIST, ENCTABLE); read 2026-10-15. The codex draft `SPBATTLE.draft.md` was used only as a map of the string literals; every statement below is re-derived from the listing by `decode/pseudo/tools/qb2bas.py` run twice with `--names decode/pseudo/SPBATTLE_names.json --tempbase 6FAA` (the first pass writes `_spb_try.md.vars.json`). This file = `decode/pseudo/SPBATTLE_header.md` + the generated body. Screens and flows: `decode/pseudo/SPBATTLE_SCREENS.md`.
+
+Translator note: the shared `qb2bas.py` initially crashed on `imul word ptr [bp - 0xc]` (SPBATTLE 0F2C); mod-inside committed the fix (c48ab36, `qb2bas done` in STATUS.md) and the body was regenerated with the shared translator; regenerated again after the PUT verb-map correction (541b493: 0 OR, 1 AND, 2 PRESET, 3 PSET, 4 XOR), which changed the verb word of every PUT (enemy/explosion/hit frames are OR, headers/player ship/saved areas PSET, the scan-map cell clear PRESET).
+
+## Conventions
+
+Same as `SPACE.bas.md`: labels = offsets, `SUB_XXXX` = near-call targets, `G!()` = the COMMON array at DS 0x1850 (fixed-index elements print as `G!(n)`, named COMMON scalars give their index in the Variables table), compiler temp slots T0..T24 at 0x6FAA + 8n (identified like SPACE's: the 268-byte gap 0x6F9E..0x70AA in the literal table, T0 = 0x6FAA used as the SHIP-n BLOAD offset at 0112 = `&H65FC`, T1 = 0x6FB2 as the ENSHP BLOAD offset at 0CAB = `&H6AA2`) are rendered as the expression they hold, FOR/NEXT reconstructed (the step, when not 1, is printed on the `NEXT x STEP s` line, never on the FOR line), bool idioms as relational values, `RETURN 'with FAC = ...` = value left in the accumulator.
+
+DEF FN accessors inlined at every call site (bodies at the SUB_ addresses):
+
+| FN | definition | body |
+|---|---|---|
+| `FNCrew(m, f)` | `INT(G!(m*100 + f + 1300) + .1)` crew-record field | SUB_0301 |
+| `FNIdx(m, f)` | `INT(m*100 + f + 1300.5)` index of that field | SUB_0333 |
+| `FNKey` | `INT(G!(78)*30000 + G!(79) + .5)` (no arguments) | 0352 (never called here) |
+| `FNMod8(a)` | `a MOD 8` (heading wrap) | SUB_0CB1 |
+| `FNDist(a, b)` | distance between ships a and b (5 = the player) | SUB_0CD1 |
+| `FNAngle(a, b)` | bearing a -> b in degrees | SUB_0D2A |
+| `FNInView(a)` | ship a inside the visual window | SUB_0DE2 |
+| `FNNorm(a)` | angle to -180..180 | SUB_0E81 |
+| `FNCanHit(a, b)` | gunner a (0..5 = member 3..8) can hit ship b: distance < 10, `ABS(ArcAngle!(a) - bearing + heading*45) < 60.5`, ship active, in view | SUB_0EAC |
+| `FNSize(a)` | `EnTonnage!` (the same scalar for every enemy) or `BaseWt!` for the player (a = 5) | SUB_0FED |
+| `FNScale(a)` | sprite scale factor by size | SUB_1033 |
+| `FNShotX(a, b)` / `FNShotY(a, b)` | screen origin of weapon slot a of ship b | SUB_10B2 / SUB_1150 |
+
+Per-enemy-ship state is a set of parallel arrays indexed 0..NumEnemy!-1 (`Hull!`, `EnArmor!`, `EnFuel!`, `EnX!`, `EnY!`, `EnHeading!`, `EnStatus!`, `CanMove!`, `CanTurn!`, `EnDefence!`, `Missiles!`) plus the 2-D `Shield!(facing, ship)` and the 6-slot `WeaponOK!`/`WeaponDmg!` (index `ship*6 + slot`; the translator's 2-D detection only recognises the `x + N*y` form, so these print with the explicit index). The player ship is index 5 in `FNDist`/`FNShotX` and sits at grid (`EnX!(5)`, `EnY!(5)`; the decode had rendered these direct operands as scalars `MyX!`/`MyY!` - sweep-folded); screen = grid*8 - (96,16) in the visual window, grid*5 + (-23, 24) on the scan map.
+
+## Key map
+
+| reader | keys | `Cmd!` |
+|---|---|---|
+| SUB_1C3B (movement phase) | extended keys -> scan code - 70 (2 Up, 5 Left, 7 Right, 10 Down); letters A..Z -> 12..37; cursor keys refused with "Pilot or ship not ready" (`Cmd! = 40`) unless member 1 is alive with field 17 > 0, `Fuel! > 0`, `G!(0) = G!(3) = 1` | dispatch 33A0: Up/Left/Right/Down move, A rotate CCW, B rotate CW, C enemy report, D visual, E skip, F switch, G time delay, H hyperspace |
+| SUB_1857 (menus) | letters -> 1.. (A = 1), ENTER -51, SPACE -32, accepted within `CmdMin!..CmdMax!` | approaches 1..6, objectives 1..4, targeting 1..23 |
+| SUB_1FD6 | Y/N | `YesNo!` |
+| SUB_15A6 | ENTER 0, P 1, C 2, 1..6 -> 3..8 | `Member!` |
+
+## G!() layout used by SPBATTLE (in addition to the SPACE table)
+
+| indices | meaning | evidence |
+|---|---|---|
+| 1 | helm/engines flag, must be 1 to rotate | 4794 |
+| 2 | life support ok (1) | 2C3A, 3024 |
+| 4 | radio fitted | 2166 |
+| 7..10 | shield fitted flags (facing 0..3) | 5E06, 1A37 |
+| 11..16 | gun fitted flags (member m uses `G!(m+8)`) | 4A6E, 53E0 |
+| 18 | missile killer active | 51C3 |
+| 19 | hull state (2 = breached) | 6094, 136A |
+| 60/61, 63/64 | missile killer / defence hardware fitted and % | 51C3, 51E8 |
+| 67, 70, 73, 76 | shield strengths (`67 + 3f`) | 5E06, 136A, 7A5B in SPACE |
+| 109 | special flag set when `EnBoardArg! = 23` | 73BD |
+| 110..159 | mission flags (1 active -> 2 done by SUB_73A9) | 73C6 |
+| 210..259 / 260..309, 310..315 | kill list and its pointers (`KillPtr!` ring of 50) | 2D80-2E53 |
+| 340..369 | gun ammo stock | 548A-54F2 |
+| 669 + 7m (m = 3..8) = 690 + 7(m-3) | gun record of member m: type, +1 damage, +2 ammo capacity, +4 accuracy, +5 loaded ammo, +6 shots per salvo | 53F7-5816 |
+| crew fields | 1 initiative (fires when >= `TimeSlot!`), 10 hit bonus, 15 HP, 17 pilot skill (member 1), 18 gunnery, 23 comms (member 2), 26 repair, 31 status, 37 command (0 Wait .. 7 Rapid fire, 8 = fired), 38 target ship, 56 aim level | 5332-5455, 56FF, 4A6E-5145 |
+| 2200.. | `Fuel!`, `ChainArg!` (= ENCLIST record on entry, = `EnBoardArg!` before PLBATTLE), `ShipHeading!`, `Terrain!`, `Surprise!`, mission codes, `Gravity10!`, `BoardCrew!` = boarded ship hull, `Breathable!`, `LastEnemyType!` last enemy type, `TributeCount!` tribute counter | Variables table |
+
+## Manual corrections (translator limitations; the body text is as generated)
+
+- 0741B `0 = Pad!` is a stray render of the padding bytes after the last `RETURN` at 7412 (the `' asm` lines up to 744E are data, not code).
+- 13FF-1423 (`LOCATE 24,3: PRINT "Select Option"; GOSUB SUB_1857`) and 1F77-1FD5 (item search for `ItemType!`), 2042-2087 (three-letter yes/no) are unreferenced blocks (no `call`/`jmp` reaches them): compiled leftovers shared with SPACE.
+- 0040-036E dead code: `DebugLoad!` (0x6F8E) is never assigned, so the standalone BLOADs, NAME/CHARNAME reads and the "Change things?" test-ship setup never run when CHAINed from SPACE.
+- `AmmoCount!` (0x9EEE), `AllDead!` (0x9F4C), `ShieldNo!` (0x9F98), `EnemyLeft!` (0xA05E) are reused for a second purpose in the battle code; the Variables table names the primary use and lists the reuse.
+
+## Unknowns
+
+No runtime call is left unrendered. Open interpretation points (M in the Variables table): the meaning of ENCTABLE columns is derived only from how SPBATTLE consumes them (names `Tbl*`/`En*` are readings); `MoveDX!/MoveDY!` elements 1,3 / 0,2 are set at 0DC3-0DDC and the others are assumed 0 (never written); crew field 1 (initiative) and 56 (aim level) have no printed label.
+
+## Pseudocode
+
+```basic
+00046  Drive$ = ""
+00052  IF DriveCfg! <> 1 THEN GOTO L_0060
+L_0057:
+0005A  Drive$ = "A:"
+0005D  GOTO L_0077
+L_0060:
+00069  IF DriveCfg! <> 2 THEN GOTO L_0077
+L_006E:
+00074  Drive$ = "B:"
+L_0077:
+00083  SndDur! = 1 - SoundOff!
+0008C  FOR J! = 0 TO 7
+L_0090:
+000A2  READ HeadX%(CINT(J!))
+000AB  READ HeadY%(CINT(J!))
+000B6  NEXT J!
+000CD  IF DebugLoad! = 0 THEN GOTO L_0115
+L_00D2:
+000DE  BLOAD "spacesh", &H4890
+000ED  BLOAD "CHARINFO", &H1850
+00112  BLOAD "SHIP" + STR$(-1 - ShipClass!), &H65FC
+L_0115:
+0011B  Status$(0) = "Dead"
+00124  Status$(1) = "Okay"
+0012D  Status$(2) = "Rad"
+00136  SlotTag$(1) = "P"
+0013F  SlotTag$(2) = "C"
+00148  FOR I! = 3 TO 8
+L_014C:
+00170  SlotTag$(CINT(I!)) = CHR$(CINT(I! + 46))
+0017B  NEXT I!
+00191  SlotTag$(0) = "SH"
+0019A  ClassName$(0) = "Marine"
+001A3  ClassName$(1) = "Pilot"
+001AC  ClassName$(2) = "Soldier"
+001B5  IF DebugLoad! = 0 THEN GOTO L_02FE
+L_01BA:
+001C6  BLOAD "LOGO", &H40F4
+001D6  OPEN "NAME" FOR INPUT AS #1
+001DF  FOR I! = 1 TO 52
+L_01E2:
+001E5  INPUT #1, K$
+001FC  NEXT I!
+00212  FOR I! = 0 TO 2
+L_0216:
+00219  INPUT #1, MissileKillerName$(CINT(I!))
+0023E  NEXT I!
+00254  FOR I! = 0 TO 24
+L_0258:
+0025B  INPUT #1, GunName$(CINT(I!))
+00280  NEXT I!
+00293  CLOSE #1
+002A3  OPEN "CHARNAME" FOR INPUT AS #1
+002A9  INPUT #1, ShipName$
+002BD  FOR I! = 1 TO 8
+L_02C0:
+002C3  INPUT #1, CrewName$(CINT(I!))
+002E8  NEXT I!
+002FB  CLOSE #1
+L_02FE:
+002FE  GOTO L_0330
+SUB_0301:
+0032F  RETURN   'with FAC = INT(G!(CINT(FnMember! * 100 + FnField! + 1300)) + 0.1)
+L_0330:
+00330  GOTO L_034F
+SUB_0333:
+0034E  RETURN   'with FAC = INT(Fn2Member! * 100 + Fn2Field! + 1300.5)
+L_034F:
+0034F  GOTO L_036E
+0036D  RETURN   'with FAC = INT(CreditsHi! * 30000 + CreditsLo! + 0.5)
+L_036E:
+00374  IF DebugLoad! = 0 THEN GOTO L_06BA
+L_0379:
+00379  GOSUB SUB_1D8C
+00385  LOCATE 20, 2
+00388  PRINT "Change things? ";
+00394  GOSUB SUB_1FD6
+0039D  IF YesNo! = 0 THEN GOTO L_06BA
+L_03A2:
+003A8  RetrosCond! = 1
+003B1  RANDOMIZE TIMER
+003BA  FOR I! = 0 TO 22
+L_03BE:
+003D5  G!(CINT(I!)) = 1
+003DF  NEXT I!
+003F5  FOR Ix! = 690 TO 725
+L_03F8:
+0042E  G!(CINT(Ix!)) = 2 - (RND < 0.5) * 15
+0044E  G!(CINT(Ix! + 1)) = 99
+0046D  G!(CINT(Ix! + 2)) = 9
+0048A  G!(CINT(Ix! + 4)) = 40
+004A5  G!(CINT(Ix! + 5)) = 7
+004C3  G!(CINT(Ix! + 6)) = 2
+004CD  NEXT Ix! STEP 7
+L_04E0:
+004E6  FOR I! = 1 TO 8
+L_04EA:
+0051F  G!(CINT(FNIdx(I!, 1))) = RND * 70 + 20
+0052B  NEXT I!
+00541  FOR I! = 340 TO 369
+L_0544:
+0057A  G!(CINT(I!)) = 2 - (RND < 0.5) * 15
+00586  NEXT I!
+0059C  DefSysCond! = 1
+005A2  MisKillerCond! = 1
+005AD  MissileKiller! = 3
+005B6  MissileKillPct! = 50
+005BF  DefHardwarePct! = 20
+005C7  HullCond! = 1
+005F1  G!(CINT(FNIdx(2, 31))) = 1
+00619  G!(CINT(FNIdx(2, 23))) = 6
+00622  Fuel! = 100
+0064A  G!(CINT(FNIdx(2, 26))) = 6
+00653  ChainArg! = 7
+0065C  Fuel! = 1
+00665  G!(67) = 0
+0066B  G!(70) = 0
+00671  G!(73) = 0
+00677  G!(76) = 0
+00680  ChainArg! = 18
+00689  Armor! = 777
+00692  Defence! = -999
+0069B  G!(7) = 1
+006A4  G!(8) = 2
+006AF  G!(9) = 0
+006B7  G!(10) = 2
+L_06BA:
+006C0  RANDOMIZE TIMER
+006D5  BLOAD Drive$ + "SPBTSH.BAS", &H73A0
+006EF  OPEN Drive$ + "ENCLIST" FOR INPUT AS #1
+006F8  EncRec! = ChainArg!
+00701  FOR I! = 0 TO EncRec!
+L_0704:
+00707  INPUT #1, EnemyName$, NumEnemy!, EncMod!, EncRow!
+00733  NEXT I!
+00746  CLOSE #1
+00749  GOSUB SUB_1D8C
+00755  LOCATE 22, 3
+00758  PRINT NumEnemy!; EnemyName$; "(s)"
+00787  OPEN Drive$ + "ENCTABLE" FOR INPUT AS #1
+00790  EncRowN! = EncRow!
+00799  FOR I! = 0 TO EncRowN!
+L_079C:
+0079F  INPUT #1, TblHull!, TblGun!, TblDef!, TblFuel!, TblArmor!, TblMissileDmg!, TblShield!, TblWeapon!(0), TblWeapon!(1), TblWeapon!(2), TblWeapon!(3), TblWeapon!(4), TblWeapon!(5)
+00804  INPUT #1, EnMoves!, EnTech!, EnAttitude!, EnTactic!, EnSprite!, EnBoardArg!, EnTonnage!, EnShipType!, EnStrength!, EnHitBonus!, TblGunDmg!, TblMissiles!
+00868  NEXT I!
+L_087B:
+0087E  CLOSE #1
+0088C  EncMod! = EncMod! / 100
+0089A  EnStrength! = EnStrength! * NumEnemy!
+008A3  FOR I! = 0 TO 4
+L_08A6:
+008BD  EnStatus!(CINT(I!)) = 0
+008C8  NEXT I!
+008F4  GunMin! = (EncMod! * 0.2 + 0.7) * TblGun!
+0090F  GunMax! = (EncMod! * 0.1 + 1.3) * TblGun!
+0091C  GunRange! = GunMax! - GunMin!
+00945  EnTonnage! = INT((EncMod! * 0.37 + 1) * EnTonnage! + 0.5)
+00954  ShipsN0! = NumEnemy! - 1
+0095D  FOR I! = 0 TO ShipsN0!
+L_0960:
+0099E  Hull!(CINT(I!)) = INT((EncMod! * 0.2 + 1) * TblHull! + 0.5)
+009AC  CanMove!(CINT(I!)) = 1
+009B5  CanTurn!(CINT(I!)) = 1
+009E5  EnArmor!(CINT(I!)) = INT((EncMod! * 0.5 + 1) * TblArmor! + 0.5)
+00A0D  EnFuel!(CINT(I!)) = ((RND * 0.4 + 0.6) * (EncMod! * 0.5 + 1)) * TblFuel!
+00A35  EnY!(CINT(I!)) = 4 - (RND < 0.5) * 12
+00A55  TblMissileDmg! = EncMod! * 0.5 + TblMissileDmg! + 1
+00A6B  TblGunDmg! = (EncMod! * 0.6 + 1) * TblGunDmg!
+00AB1  Missiles!(CINT(I!)) = INT((RND * 0.6 + EncMod! * 0.3 + 0.7) * TblMissiles! + 0.5)
+00AF0  EnX!(CINT(I!)) = INT((I! / (NumEnemy! - 0.9999)) * 13.1 + 14)
+00B1C  EnHeading!(CINT(I!)) = -((EnY!(CINT(I!)) < 10) * 4)
+00B2A  EnStatus!(CINT(I!)) = 4
+00B36  EnDefence!(CINT(I!)) = TblDef!
+00B3F  FOR K! = 0 TO 3
+L_0B42:
+00B7D  Shield!(CINT(K!), CINT(I!)) = (EncMod! * 0.2 + 1) * TblShield!
+00B87  NEXT K!
+00B9D  FOR K! = 0 TO 5
+L_0BA0:
+00C06  WeaponOK!(CINT(I!) * 6 + CINT(K!)) = ABS(RND * 100 < ABS(TblWeapon!(CINT(K!))) + EncMod! * 20)
+00C2D  WeaponDmg!(CINT(I!) * 6 + CINT(K!)) = (SGN(TblWeapon!(CINT(K!)))) * (RND * GunRange! + GunMin!)
+00C39  NEXT K!
+L_0C4C:
+00C55  NEXT I!
+L_0C68:
+00C6E  EnX!(5) = 20
+00C77  EnY!(5) = 10
+00CAB  BLOAD Drive$ + "ENSHP" + STR$(-EnSprite!) + ".BAS", &H6AA2
+00CAE  GOTO L_0CCE
+SUB_0CB1:
+00CCD  RETURN   'with FAC = INT(Arg0CB1! - (INT(Arg0CB1! * 0.125) * 8))
+L_0CCE:
+00CCE  GOTO L_0D27
+SUB_0CD1:
+00D26  RETURN   'with FAC = SQR((EnX!(CINT(ArgA0CD1!)) - (EnX!(CINT(ArgB0CD1!)))) ^ 2 + (EnY!(CINT(ArgA0CD1!)) - (EnY!(CINT(ArgB0CD1!)))) ^ 2)
+L_0D27:
+00D27  GOTO L_0DBA
+SUB_0D2A:
+00DB9  RETURN   'with FAC = INT(90 - ((EnX!(CINT(ArgB0D2A!)) < EnX!(CINT(ArgA0D2A!))) * 180) - ((ATN((EnY!(CINT(ArgA0D2A!)) - (EnY!(CINT(ArgB0D2A!)))) / (EnX!(CINT(ArgB0D2A!)) - (EnX!(CINT(ArgA0D2A!))) + 1e-07))) * 57.296) + 0.5)
+L_0DBA:
+00DBA  GOSUB SUB_6FE6
+00DC3  MoveDY!(0) = -1
+00DCE  MoveDX!(1) = 1
+00DD4  MoveDY!(2) = 1
+00DDC  MoveDX!(3) = -1
+00DDF  GOTO L_0E47
+SUB_0DE2:
+00E46  RETURN   'with FAC = (EnX!(5) - (EnX!(CINT(Arg0DE2!))) < 7) * (EnX!(CINT(Arg0DE2!)) - EnX!(5) < 8) * ABS(ABS(EnY!(5) - (EnY!(CINT(Arg0DE2!)))) < 7)
+L_0E47:
+00E4D  FOR I! = 1 TO 5
+L_0E50:
+00E62  READ ArcAngle!(CINT(I!))
+00E6D  NEXT I!
+00E7E  GOTO L_0EA9
+SUB_0E81:
+00EA8  RETURN   'with FAC = INT(Arg0E81! - ((INT((Arg0E81! + 180) / 360)) * 360))
+L_0EA9:
+00EA9  GOTO L_0F70
+SUB_0EAC:
+00F6F  RETURN   'with FAC = (((FNDist(5, ArgB0EAC!) < 10) * (ABS(FNNorm(ArcAngle!(CINT(ArgA0EAC!)) - FNAngle(5, ArgB0EAC!) + ShipHeading! * 45)) < 60.5)) * (INT((EnStatus!(CINT(ArgB0EAC!))) / 3))) * FNInView(ArgB0EAC!)
+L_0F70:
+00F76  FOR I! = 0 TO 7
+L_0F7A:
+00F8C  READ CmdName$(CINT(I!))
+00F97  NEXT I!
+00FAE  FOR I! = 0 TO 7
+L_0FB2:
+00FC6  READ PortX!(CINT(I!))
+00FCF  READ PortY!(CINT(I!))
+00FDA  NEXT I!
+00FEA  GOTO L_1030
+SUB_0FED:
+0102F  RETURN   'with FAC = ABS((Arg0FED! < 5) * EnTonnage!) + ABS(BaseWt! * (Arg0FED! = 5))
+L_1030:
+01030  GOTO L_10AE
+SUB_1033:
+010AD  RETURN   'with FAC = 0.3 - ((FNSize(Arg1033!) > 77) * 0.3) - ((FNSize(Arg1033!) > 148) * 0.2) - ((FNSize(Arg1033!) > 199) * 0.2)
+L_10AE:
+010AF  GOTO L_114D
+SUB_10B2:
+0114C  RETURN   'with FAC = (EnX!(CINT(ArgB10B2!))) * 8 + FNScale(ArgB10B2!) * (PortX!(CINT(FNMod8(EnHeading!(CINT(ArgB10B2!)) - (ArgA10B2! > 4) - (ArgA10B2! > 1) + ArgA10B2!))) - 11) - 85
+L_114D:
+0114D  GOTO L_11CA
+SUB_1150:
+011C9  RETURN   'with FAC = (EnY!(CINT(ArgB1150!))) * 8 + PortY!(CINT(FNMod8(EnHeading!(CINT(ArgB1150!)) - (ArgA1150! > 4) - (ArgA1150! > 1) + ArgA1150!))) - 16
+L_11CA:
+011D0  DelayN! = 6
+011D6  DelayM! = 6
+011DF  FOR I! = 0 TO 4
+L_11E2:
+011E8  FOR K! = 0 TO 2
+L_11EC:
+0120D  READ ApproachTbl!(CINT(I!) + CINT(K!) * 5)
+01219  NEXT K!
+0122F  FOR K! = 0 TO 8
+L_1232:
+01253  READ StrengthTbl!(CINT(I!) + CINT(K!) * 5)
+0125F  NEXT K!
+01275  FOR K! = 0 TO 3
+L_1278:
+01299  READ ObjectiveTbl!(CINT(I!) + CINT(K!) * 5)
+012A5  NEXT K!
+012BE  NEXT I!
+L_12D1:
+0136A  MyStrength! = (ShipClass! * 25 + CargoWt10! / 10 + (G!(67) * (SGN(G!(7))) + G!(70) * (SGN(G!(8))) + G!(73) * (SGN(G!(9))) + G!(76) * (SGN(G!(10)))) / 50 + 25) / (INT(HullCond! + 0.9) + 1e-07)
+01373  CommState! = 2
+0137C  Hostile! = 0
+01382  Boarding! = 0
+0138B  FOR Member! = 1 TO 8
+L_138E:
+013B3  G!(CINT(FNIdx(Member!, 37))) = 0
+013BF  NEXT Member!
+013CF  GOSUB SUB_4186
+013D2  GOTO L_2088
+SUB_13D5:
+013E1  DelayCount! = Delay! * 1.2
+013EA  FOR Tmp! = 1 TO DelayCount!
+L_13EE:
+013F7  NEXT Tmp!
+01407  RETURN
+01411  LOCATE 24, 3
+01414  PRINT "Select Option";
+01420  GOSUB SUB_1857
+01423  RETURN
+SUB_1424:
+01439  Delta! = CreditsHi! * 30000 + CreditsLo! + Delta!
+01444  IF Delta! <= 9999999 THEN GOTO L_144E
+L_1449:
+0144B  Delta! = 9999999
+L_144E:
+0145E  CreditsHi! = Delta! / 30000
+01470  CreditsLo! = Delta! - (CreditsHi! * 30000)
+01473  RETURN   'with FAC = CreditsLo!
+SUB_1474:
+01474  RETURN
+SUB_1475:
+0148B  LOCATE CINT(I! + 12), 33
+0149F  Ix! = I! * 7 + 683
+014B4  GunType! = G!(CINT(Ix!))
+014EE  IF NOT ((INT(G!(CINT(I! + 10))) <> 1) OR (GunType! < 1)) THEN GOTO L_1500
+L_14F3:
+014F3  PRINT "-- --"
+014FF  RETURN   'with FAC = INT(G!(CINT(I! + 10)))
+L_1500:
+01509  IF GunType! <= 14 THEN GOTO L_151B
+L_150E:
+0150E  PRINT "Okay"
+0151A  RETURN
+L_151B:
+01521  AmmoCount! = 0
+0152A  FOR Tmp2! = 340 TO 369
+L_152E:
+01559  AmmoCount! = AmmoCount! - (G!(CINT(Tmp2!)) = GunType!)
+01564  NEXT Tmp2!
+0158D  Tmp! = G!(CINT(Ix! + 5))
+01593  PRINT USING "## ##"; Tmp!; AmmoCount!
+015A5  RETURN   'with FAC = Ix! + 5
+SUB_15A6:
+015A6  GOSUB SUB_1D8C
+015B2  LOCATE 22, 3
+015B5  PRINT Prompt$;
+L_15C1:
+015C7  K$ = INKEY$
+015D2  IF K$ = "" THEN GOTO L_15C1
+015E0  I! = ASC(K$)
+015EB  IF I! <> 13 THEN GOTO L_15FC
+L_15F0:
+015F6  Member! = 0
+015F9  GOTO L_1692
+L_15FC:
+0161B  IF NOT ((I! = 112) OR (I! = 80)) THEN GOTO L_162C
+L_1620:
+01626  Member! = 1
+01629  GOTO L_1692
+L_162C:
+0164B  IF NOT ((I! = 99) OR (I! = 67)) THEN GOTO L_165C
+L_1650:
+01656  Member! = 2
+01659  GOTO L_1692
+L_165C:
+0167B  IF NOT ((I! < 55) AND (I! > 48)) THEN GOTO L_168F
+L_1680:
+01689  Member! = I! - 46
+0168C  GOTO L_1692
+L_168F:
+0168F  GOTO L_15C1
+L_1692:
+01692  RETURN
+SUB_1693:
+01699  FOR DelayN! = 1 TO 5
+L_169C:
+0169C  GOSUB SUB_13D5
+016A8  NEXT DelayN!
+016B8  RETURN
+SUB_16B9:
+016B9  PRINT "Press ENTER Key";
+L_16C5:
+016CB  K$ = INKEY$
+016D6  IF K$ = "" THEN GOTO L_16C5
+016E6  IF CHR$(13) <> K$ THEN GOTO L_16C5
+016E8  RETURN
+SUB_16E9:
+016EF  Tmp! = Armor!
+016FA  IF Tmp! <= 999 THEN GOTO L_1704
+L_16FF:
+01701  Tmp! = 999
+L_1704:
+0170D  LOCATE 6, 27
+01713  PRINT USING "###"; Tmp!
+0171F  RETURN
+SUB_1720:
+01729  LOCATE 4, 26
+0172F  PRINT USING "####"; Fuel!
+0173B  RETURN
+SUB_173C:
+01742  AllDead! = 1
+0174B  FOR M! = 1 TO 8
+L_174E:
+01764  LOCATE CINT(M! + 10), 23
+01783  IF FNCrew(M!, 31) = 1 THEN GOTO L_17B4
+L_1788:
+01788  PRINT Status$(CINT(FNCrew(M!, 31)));
+017B1  GOTO L_17CB
+L_17B4:
+017B4  PRINT CrewName$(CINT(M!));
+L_17CB:
+017CB  PRINT SPC(-(POS(0) - 31)); "";
+01811  AllDead! = (ABS(FNCrew(M!, 31) = 0)) * AllDead!
+0181D  NEXT M!
+L_1830:
+01830  RETURN
+SUB_1831:
+01837  FOR I! = 1 TO 6
+L_183A:
+0183A  GOSUB SUB_1475
+01846  NEXT I!
+01856  RETURN
+SUB_1857:
+0185D  K$ = INKEY$
+01868  IF K$ = "" THEN GOTO L_1857
+01876  Cmd! = ASC(K$)
+01881  IF Cmd! <= 95 THEN GOTO L_1891
+L_1886:
+0188E  Cmd! = Cmd! - 32
+L_1891:
+0189C  Cmd! = Cmd! - 64
+018D9  IF NOT (((Cmd! <= CmdMax!) AND (Cmd! >= CmdMin!)) OR ((Cmd! = -51) OR (Cmd! = -32))) THEN GOTO L_18DF
+L_18DE:
+018DE  RETURN   'with FAC = Cmd!
+L_18DF:
+018DF  GOTO L_1857
+SUB_18E2:
+018E8  PutX! = 264
+018F1  PutY! = 24
+018FA  Heading! = ShipHeading!
+018FD  GOSUB SUB_4372
+01906  FOR Tmp2! = 0 TO 7
+L_190A:
+01916  Ix! = Tmp2! + Heading!
+01921  IF Ix! <= 7 THEN GOTO L_1931
+L_1926:
+0192E  Ix! = Ix! - 8
+L_1931:
+01950  IF NOT ((Tmp2! = 6) OR (Tmp2! = 2)) THEN GOTO L_1961
+L_1955:
+0195B  J! = 7
+0195E  GOTO L_199D
+L_1961:
+0199A  J! = (Tmp2! > 2) + (Tmp2! > 6) + Tmp2! + 1
+L_199D:
+019B7  I! = HeadX%(CINT(Ix!)) + 228
+019CB  K! = HeadY%(CINT(Ix!)) - 76
+019CE  GOSUB SUB_1B68
+019DA  NEXT Tmp2!
+L_19ED:
+019F3  ShieldStr! = 1
+019FC  ArcStart! = 0
+01A07  ArcEnd! = 6.28
+01A0F  ArcOn! = 0
+01A12  GOSUB SUB_1AC7
+01A1B  FOR ShieldNo! = 1 TO 4
+L_1A1E:
+01A37  ShieldStr! = G!(CINT(ShieldNo! + 6))
+01A3F  IF ShieldStr! = 0 THEN GOTO L_1A7D
+L_1A44:
+01A60  ArcStart! = (3.2 - (ShieldNo! * 2) - Heading!) * 0.7854
+01A6E  ArcEnd! = ArcStart! + 1.2566
+01A77  ArcOn! = 1
+01A7A  GOSUB SUB_1A97
+L_1A7D:
+01A86  NEXT ShieldNo!
+01A96  RETURN
+SUB_1A97:
+01A9D  IF ArcStart! >= 0 THEN GOTO L_1AAF
+L_1AA2:
+01AAA  ArcStart! = ArcStart! + 6.283185
+01AAD  GOTO L_1A97
+L_1AAF:
+01AB5  IF ArcEnd! >= 0 THEN GOTO L_1AC7
+L_1ABA:
+01AC2  ArcEnd! = ArcEnd! + 6.283185
+01AC5  GOTO L_1A97
+SUB_1AC7:
+01AD3  ArcX1! = 277 - ShieldStr!
+01ADC  FOR I! = 275 TO ArcX1!
+L_1AE0:
+01AEC  ArcY1! = 37 - ShieldStr!
+01AF5  FOR K! = 35 TO ArcY1!
+L_1AF8:
+01B2F  CIRCLE (I!, K!), 25.5, CINT(ShieldStr! + ArcOn! - 1), ArcStart!, ArcEnd!, 1
+01B3B  NEXT K!
+01B54  NEXT I!
+L_1B67:
+01B67  RETURN
+SUB_1B68:
+01B6E  ON CINT(J!) GOSUB L_1B81, L_1B99, L_1BB1, L_1BC9, L_1BE1, L_1BF9, L_1C11
+01B80  RETURN
+L_1B81:
+01B95  PUT (I!, K!), Digit1, PSET
+01B98  RETURN
+L_1B99:
+01BAD  PUT (I!, K!), Digit2, PSET
+01BB0  RETURN
+L_1BB1:
+01BC5  PUT (I!, K!), Digit3, PSET
+01BC8  RETURN
+L_1BC9:
+01BDD  PUT (I!, K!), Digit4, PSET
+01BE0  RETURN
+L_1BE1:
+01BF5  PUT (I!, K!), Digit5, PSET
+01BF8  RETURN
+L_1BF9:
+01C0D  PUT (I!, K!), Digit6, PSET
+01C10  RETURN
+L_1C11:
+01C25  PUT (I!, K!), Digit1, PSET
+01C37  PUT (I!, K!), Digit1, XOR
+01C3A  RETURN
+SUB_1C3B:
+01C41  K$ = INKEY$
+01C4C  IF K$ = "" THEN GOTO L_1C3B
+01C59  IF LEN(K$) <= 1 THEN GOTO L_1C98
+L_1C5E:
+01C72  Cmd! = ASC(RIGHT$(K$, 1)) - 70
+01C93  IF ((Cmd! > 11) OR (Cmd! < 1)) THEN GOTO L_1C3B
+01C95  GOTO L_1CE7
+L_1C98:
+01CA7  Cmd! = ASC(K$) - 53
+01CB2  IF Cmd! <= 43 THEN GOTO L_1CC2
+L_1CB7:
+01CBF  Cmd! = Cmd! - 32
+L_1CC2:
+01CE1  IF (Cmd! > 37) OR (Cmd! < 12) THEN GOTO L_1C3B
+L_1CE6:
+01CE6  RETURN
+L_1CE7:
+01D5B  IF NOT ((FNCrew(1, 17) > 0) AND ((Fuel! > 0) AND ((PowerCond! = 1) AND ((EngineCond! = 1) AND (FNCrew(1, 31) > 0))))) THEN GOTO L_1D61
+L_1D60:
+01D60  RETURN   'with FAC = FNCrew(1, 17)
+SUB_1D61:
+01D61  GOSUB SUB_1D8C
+01D6D  LOCATE 22, 3
+01D70  PRINT "Pilot or ship not ready"
+01D7C  GOSUB SUB_1693
+01D7F  GOSUB SUB_1693
+01D88  Cmd! = 40
+01D8B  RETURN
+SUB_1D8C:
+01DAA  LINE (16, 152)-(303, 191), 0, BF
+01DAD  RETURN
+SUB_1DAE:
+01DCC  LINE (16, 160)-(303, 191), 0, BF
+01DCF  RETURN
+SUB_1DD0:
+01DEE  LINE (16, 8)-(143, 144), 0, BF
+01DF1  RETURN
+01E0F  LINE (16, 16)-(143, 144), 0, BF
+01E12  RETURN
+SUB_1E13:
+01E19  MaxLen! = 4
+SUB_1E1C:
+01E27  CurX! = POS(0)
+01E33  CurY! = CSRLIN
+01E3C  K$ = ""
+L_1E3F:
+01E5F  LOCATE CINT(CurY!), CINT(CurX!), 1, 0, 7
+01E62  PRINT K$; " ";
+L_1E74:
+01E7A  Ch$ = INKEY$
+01E85  IF Ch$ = "" THEN GOTO L_1E74
+01E93  I! = ASC(Ch$)
+01E9E  IF I! = 13 THEN GOTO L_1F62
+L_1EA3:
+01EC8  IF NOT ((LEN(K$) > 0) AND (I! = 8)) THEN GOTO L_1EE4
+L_1ECD:
+01EDE  K$ = LEFT$(K$, LEN(K$) - 1)
+01EE1  GOTO L_1E3F
+L_1EE4:
+01F14  IF ((I! > 57) OR (I! < 48)) AND (MaxLen! = 4) THEN GOTO L_1E3F
+L_1F19:
+01F38  IF (I! > 126) OR (I! < 32) THEN GOTO L_1E74
+L_1F3D:
+01F4C  IF LEN(K$) >= MaxLen! THEN GOTO L_1E74
+L_1F51:
+01F5C  K$ = K$ + Ch$
+01F5F  GOTO L_1E3F
+L_1F62:
+01F6D  NumIn% = CINT(VAL(K$))
+01F70  RETURN   'with FAC = VAL(K$)
+01F77  Flag! = 0
+01F80  FOR I! = 2300 TO 2597
+L_1F84:
+01F9E  IF G!(CINT(I!)) <> ItemType! THEN GOTO L_1FBC
+L_1FA3:
+01FA8  Ix! = I!
+01FB1  Flag! = 1
+01FB9  I! = 2600
+L_1FBC:
+01FC5  NEXT I! STEP 3
+01FD5  RETURN
+SUB_1FD6:
+01FDC  K$ = INKEY$
+01FFD  IF NOT ((K$ = "Y") OR (K$ = "y")) THEN GOTO L_200C
+L_2002:
+02008  YesNo! = 1
+0200B  RETURN
+L_200C:
+0202B  IF NOT ((K$ = "N") OR (K$ = "n")) THEN GOTO L_203A
+L_2030:
+02036  YesNo! = 0
+02039  RETURN
+L_203A:
+0203A  GOTO L_1FD6
+02042  MaxLen! = 3
+02045  PRINT "(yes/no) ";
+02051  GOSUB SUB_1E1C
+0205A  YesNo! = 0
+0207C  IF NOT ((K$ = "YES") OR (K$ = "yes")) THEN GOTO L_2087
+L_2081:
+02084  YesNo! = 1
+L_2087:
+02087  RETURN
+L_2088:
+02088  GOSUB SUB_1831
+0208B  GOSUB SUB_2925
+02094  IF EnemyLeft! = 0 THEN GOTO L_2C10
+L_2099:
+020A5  ON CINT(CommState! + 1) GOTO L_2922, L_21A6, L_20AF
+L_20AF:
+020AF  GOSUB SUB_1D8C
+020BB  LOCATE 22, 3
+020BE  PRINT "Establish communications? (y/n)";
+020CA  GOSUB SUB_1FD6
+020D3  IF YesNo! = 0 THEN GOTO L_2922
+L_20D8:
+020D8  GOSUB SUB_1D8C
+020E4  LOCATE 22, 3
+02166  IF NOT ((CommCond! = 1) AND ((EnAttitude! = 1) OR ((RND * 100 < FNCrew(2, 23) * 5 + 50) AND (FNCrew(2, 31) > 0)))) THEN GOTO L_2185
+L_216B:
+0216B  PRINT "Communications established"
+0217C  CommState! = 1
+0217F  GOSUB SUB_1693
+02182  GOTO L_21A6
+L_2185:
+0218B  CommState! = 0
+0218E  PRINT CrewName$(2); " fails"
+021A0  GOSUB SUB_1693
+021A3  GOTO L_2922
+L_21A6:
+021A6  GOSUB SUB_1D8C
+021B2  LOCATE 20, 8
+021B5  PRINT "Communications Phase"
+021CC  LOCATE 21, 3
+021CF  PRINT "A-Plead"
+021E5  LOCATE 22, 3
+021E8  PRINT "B-Ask"
+021FD  LOCATE 23, 3
+02200  PRINT "C-Demand"
+02214  LOCATE 21, 15
+02217  PRINT "D-Bargain/Bribe"
+0222C  LOCATE 22, 15
+0222F  PRINT "E-Impersonate Diety"
+02242  LOCATE 23, 15
+02245  PRINT "F-None"
+0225A  LOCATE 24, 3
+0225D  PRINT "Choose An Approach: (A-F)";
+0226F  CmdMin! = 1
+02278  CmdMax! = 6
+L_227B:
+0227B  GOSUB SUB_1857
+02284  IF Cmd! < 0 THEN GOTO L_227B
+02292  Approach! = Cmd! - 1
+0229D  IF Approach! = 5 THEN GOTO L_2922
+L_22A2:
+022AB  IF Approach! <> 3 THEN GOTO L_22BC
+L_22B0:
+022B6  Objective! = 1
+022B9  GOTO L_2366
+L_22BC:
+022BC  GOSUB SUB_1DAE
+022CA  LOCATE 21, 3
+022CD  PRINT "A-Fuel"
+022E3  LOCATE 22, 3
+022E6  PRINT "B-Truce"
+022FC  LOCATE 21, 15
+022FF  PRINT "C-Tribute"
+02314  LOCATE 22, 15
+02317  PRINT "D-Surrender"
+0232B  LOCATE 24, 3
+0232E  PRINT "CHOOSE AN OBJECTIVE: (A-D)";
+L_233A:
+02340  CmdMin! = 1
+02349  CmdMax! = 4
+0234C  GOSUB SUB_1857
+02355  IF Cmd! < 0 THEN GOTO L_233A
+02363  Objective! = Cmd! - 1
+L_2366:
+0236C  Offer! = 50
+0237A  IF Approach! <> 4 THEN GOTO L_2399
+L_237F:
+02396  Offer! = (EnTech! < 4) * -40
+L_2399:
+023A7  RelStrength! = MyStrength! - EnStrength!
+023AF  IF RelStrength! <= 0 THEN GOTO L_23C1
+L_23B4:
+023BB  RelStrength! = RelStrength! / EnStrength!
+023BE  GOTO L_23CF
+L_23C1:
+023CC  RelStrength! = RelStrength! / MyStrength!
+L_23CF:
+0244B  RelStrength! = 0 - (RelStrength! > -1) - (RelStrength! > -0.5) - (RelStrength! > -0.25) - (RelStrength! > -0.05) - (RelStrength! > 0.05) - (RelStrength! > 0.25) - (RelStrength! > 0.5) - (RelStrength! > 1)
+0246D  IF NOT ((EnAttitude! = 1) AND (Hostile! = 1)) THEN GOTO L_247A
+L_2472:
+02477  EnAttitude! = 3
+L_247A:
+024F8  Offer! = ((ApproachTbl!(CINT(Approach!) + CINT(EnAttitude! - 1) * 5)) * (StrengthTbl!(5 * CINT(RelStrength!) + CINT(Approach!)))) * Offer! + ObjectiveTbl!(CINT(Objective!) * 5 + CINT(Approach!))
+02501  IF EnemyNear! <> 0 THEN GOTO L_250C
+L_2506:
+02509  Offer! = -99
+L_250C:
+0250C  GOSUB SUB_1D8C
+02518  LOCATE 22, 3
+0252D  Tmp2! = RND * 400 - Offer!
+02535  IF Tmp2! < 0 THEN GOTO L_25B1
+L_253A:
+02569  ON 1 - (Offer! < -20) - (Offer! < 0) - (Offer! < 20) GOTO L_2575, L_2584, L_2593, L_25A2
+L_2575:
+02575  PRINT "They respectfully decline"
+02581  GOTO L_2BD3
+L_2584:
+02584  PRINT "They refuse your offer"
+02590  GOTO L_2BD3
+L_2593:
+02593  PRINT "They are insulted by your offer"
+0259F  GOTO L_2BD3
+L_25A2:
+025A2  PRINT "They laugh in your face"
+025AE  GOTO L_2BD3
+L_25B1:
+025BD  ON CINT(Objective! + 1) GOTO L_25C9, L_27C7, L_286E, L_28F5
+L_25C9:
+025CF  AmmoCount! = 2
+L_25D2:
+025D2  PRINT "They surrender most of their fuel"
+025DE  GOSUB SUB_1693
+025E1  GOSUB SUB_1D8C
+025ED  LOCATE 20, 9
+025F0  PRINT "Fueling ISS "; ShipName$
+0261A  BarX0! = (Fuel! / MaxFuel!) * 228 + 42
+02629  ShipsN! = NumEnemy! - 1
+02632  FOR I! = 0 TO ShipsN!
+L_2636:
+0264E  IF EnStatus!(CINT(I!)) <= 2.5 THEN GOTO L_266A
+L_2653:
+02667  Fuel! = Fuel! + (EnFuel!(CINT(I!))) * 0.75
+L_266A:
+02673  NEXT I!
+02694  Fuel! = INT(Fuel! + 0.5)
+0269F  IF Fuel! <= MaxFuel! THEN GOTO L_26A9
+L_26A4:
+026A6  Fuel! = MaxFuel!
+L_26A9:
+026C1  ArcEnd! = (Fuel! / MaxFuel!) * 228 + 42
+026E2  LINE (30, 168)-(283, 188), , BF
+02701  LINE (42, 175)-(270, 181), 0, BF
+02721  LINE (42, 175)-(BarX0!, 181), 2, BF
+02724  GOSUB SUB_13D5
+0273F  BarX1! = INT(ArcEnd! * 0.5) * 2
+02754  FOR I! = INT(BarX0! * 0.5) * 2 TO BarX1!
+L_2758:
+02777  LINE (BarX0!, 175)-(I!, 181), 2, BF
+0279C  SOUND CINT(I! * 10), SndDur! * 0.2
+027A8  NEXT I! STEP 2
+027B8  GOSUB SUB_1720
+027BB  GOSUB SUB_1693
+027BE  GOSUB SUB_1693
+027C1  GOSUB SUB_2B67
+027C4  GOTO L_2C10
+L_27C7:
+027D0  IF Approach! = 3 THEN GOTO L_27F3
+L_27D5:
+027D5  PRINT "They agree to a truce"
+027E7  AmmoCount! = 2
+027EA  GOSUB SUB_2B67
+027ED  GOSUB SUB_1693
+027F0  GOTO L_2C10
+L_27F3:
+027F9  Delta! = 0
+027FC  GOSUB SUB_1424
+02808  TrucePrice! = INT(TotalWt10!)
+02814  LOCATE 21, 3
+02817  PRINT "They accept"; TrucePrice!; "credits"
+02835  LOCATE , 3
+02838  PRINT "as payment for a truce"
+0284D  Delta! = -TrucePrice!
+02850  GOSUB SUB_1424
+02853  GOSUB SUB_72BA
+02856  GOSUB SUB_1693
+02859  GOSUB SUB_1693
+0285C  GOSUB SUB_1693
+02865  AmmoCount! = 2
+02868  GOSUB SUB_2B67
+0286B  GOTO L_2C10
+L_286E:
+02874  AmmoCount! = 2
+02877  GOSUB SUB_2B67
+02885  TributeCount! = TributeCount! + 1
+028A7  Delta! = INT(ABS((EnTonnage! * Tmp!) * 10))
+028B4  IF TributeCount! <= 5 THEN GOTO L_28D4
+L_28B9:
+028D1  Delta! = INT((Delta! / TributeCount!) * 5)
+L_28D4:
+028D4  PRINT "They pay"; Delta!; "credits"
+028EC  GOSUB SUB_1424
+028EF  GOSUB SUB_1693
+028F2  GOTO L_2C10
+L_28F5:
+028F5  PRINT "They surrender all valuables"
+02907  AmmoCount! = 1
+0290A  GOSUB SUB_1693
+0290D  GOSUB SUB_1693
+02910  GOSUB SUB_1D8C
+0291C  LOCATE 22, 3
+0291F  GOTO L_25D2
+L_2922:
+02922  GOTO L_309B
+SUB_2925:
+0292B  EnemyNear! = 0
+02931  EnemyLeft! = 0
+02940  ShipsN2! = NumEnemy! - 1
+02949  FOR I! = 0 TO ShipsN2!
+L_294C:
+02978  IF (EnStatus!(CINT(I!)) > 4) OR (EnStatus!(CINT(I!)) < 3) THEN GOTO L_2B20
+L_297D:
+029CD  IF NOT ((EnY!(CINT(I!)) < 17) AND ((EnY!(CINT(I!)) > 3) AND ((EnX!(CINT(I!)) < 28) AND (EnX!(CINT(I!)) > 13)))) THEN GOTO L_29DB
+L_29D2:
+029D8  EnemyNear! = 1
+L_29DB:
+02A2D  IF NOT ((EnY!(CINT(I!)) > 25) OR ((EnY!(CINT(I!)) < -5) OR ((EnX!(CINT(I!)) < 5) OR (EnX!(CINT(I!)) > 35)))) THEN GOTO L_2A50
+L_2A32:
+02A3D  EnStatus!(CINT(I!)) = 2
+02A45  EnX!(CINT(I!)) = 9999
+02A4A  EnY!(CINT(I!)) = 9999
+02A4D  GOTO L_2B20
+L_2A50:
+02A68  IF Hull!(CINT(I!)) >= 1 THEN GOTO L_2A7B
+L_2A6D:
+02A75  EnStatus!(CINT(I!)) = 1
+02A78  GOTO L_2B20
+L_2A7B:
+02A93  IF Hull!(CINT(I!)) >= 2 THEN GOTO L_2AA7
+L_2A98:
+02AA1  EnStatus!(CINT(I!)) = 3
+02AA4  GOTO L_2B20
+L_2AA7:
+02AAD  Flag! = 0
+02AB3  FOR K! = 0 TO 5
+L_2AB6:
+02AE1  Flag! = WeaponOK!(CINT(K!) + CINT(I!) * 6) + Flag!
+02AEC  NEXT K!
+02B05  IF Flag! >= 1 THEN GOTO L_2B20
+L_2B0A:
+02B1D  EnStatus!(CINT(I!)) = 3
+L_2B20:
+02B47  EnemyLeft! = EnemyLeft! - (EnStatus!(CINT(I!)) > 2.5)
+02B53  NEXT I!
+L_2B66:
+02B66  RETURN
+SUB_2B67:
+02B6D  Tmp! = 0
+02B7C  ShipsN3! = NumEnemy! - 1
+02B85  FOR I! = 0 TO ShipsN3!
+L_2B88:
+02B9E  IF EnStatus!(CINT(I!)) <= 2 THEN GOTO L_2BB9
+L_2BA3:
+02BA8  EnStatus!(CINT(I!)) = AmmoCount!
+02BB6  Tmp! = Tmp! + 1
+L_2BB9:
+02BC2  NEXT I!
+02BD2  RETURN
+L_2BD3:
+02BFD  IF NOT ((RND * 100 < Tmp2!) AND (EnAttitude! > 1)) THEN GOTO L_2C0A
+L_2C02:
+02C07  Hostile! = 1
+L_2C0A:
+02C0A  GOSUB SUB_1693
+02C0D  GOTO L_309B
+L_2C10:
+02C10  GOSUB SUB_1D8C
+02C1C  LOCATE 22, 14
+02C1F  PRINT "Battle Over"
+02C2B  GOSUB SUB_1693
+02C2E  GOSUB SUB_1693
+L_2C31:
+02C3A  IF LifeSuptCond! = 1 THEN GOTO L_2C42
+L_2C3F:
+02C3F  GOSUB SUB_2F4B
+L_2C42:
+02C45  CLS
+02C51  LOCATE 1, 14
+02C54  PRINT "BATTLE REPORT"
+02C66  Flag! = 0
+02C75  ShipsN4! = NumEnemy! - 1
+02C7E  FOR I! = 0 TO ShipsN4!
+L_2C82:
+02C82  PRINT ""
+02C8E  PRINT "#"; CHR$(CINT(I! + 49)); " "; EnemyName$; " - ";
+02CD7  IF EnStatus!(CINT(I!)) <> 2 THEN GOTO L_2CEB
+L_2CDC:
+02CDC  PRINT "Survived"
+02CE8  GOTO L_2E56
+L_2CEB:
+02D01  IF EnStatus!(CINT(I!)) <> 5 THEN GOTO L_2D15
+L_2D06:
+02D06  PRINT "Docked"
+02D12  GOTO L_2D51
+L_2D15:
+02D1B  Flag! = 1
+02D31  IF Hull!(CINT(I!)) <= 0 THEN GOTO L_2D45
+L_2D36:
+02D36  PRINT "Surrendered"
+02D42  GOTO L_2D51
+L_2D45:
+02D45  PRINT "Destroyed"
+L_2D51:
+02D80  Ix! = INT((KillPtr! + 1) * ABS(KillPtr! < 48.5))
+02DA6  KillStartAll! = INT(KillStartAll! + ABS(KillStartAll! < 49.5))
+02DCC  KillStartMission! = INT(KillStartMission! + ABS(KillStartMission! < 49.5))
+02DF2  KillStartPort! = INT(KillStartPort! + ABS(KillStartPort! < 49.5))
+02E12  G!(CINT(Ix! + 210)) = EnShipType!
+02E2D  G!(CINT(Ix! + 260)) = EnTonnage!
+02E35  KillPtr! = Ix!
+02E43  Kills! = Kills! + 1
+02E53  Tonnage! = Tonnage! + ABS(EnTonnage!)
+L_2E56:
+02E5F  NEXT I!
+L_2E72:
+02E9A  IF NOT ((MissionType! - 10 = ChainArg!) AND (Flag! = 1)) THEN GOTO L_2EA2
+L_2E9F:
+02E9F  GOSUB SUB_73A9
+L_2EA2:
+02ECC  IF NOT ((MissionCodeA! - 50 = ChainArg!) AND (Flag! = 1)) THEN GOTO L_2ED9
+L_2ED1:
+02ED6  MissionCodeA! = 0
+L_2ED9:
+02F03  IF NOT ((MissionCodeB! - 50 = ChainArg!) AND (Flag! = 1)) THEN GOTO L_2F10
+L_2F08:
+02F0D  MissionCodeB! = 0
+L_2F10:
+02F16  LastEnemyType! = ChainArg!
+02F19  GOSUB SUB_72B9
+02F22  IF Boarding! <> 0 THEN GOTO L_2F36
+L_2F27:
+02F30  CHAIN Drive$ + "SPACE.EXE"
+02F33  GOTO L_2F4B
+L_2F36:
+02F3C  ChainArg! = EnBoardArg!
+02F48  CHAIN Drive$ + "PLBATTLE.STR"
+SUB_2F4B:
+02F4B  GOSUB SUB_1D8C
+02F57  LOCATE 20, 3
+02F5A  PRINT "Life Support is out!"
+02F70  LOCATE 21, 3
+02F73  PRINT "You have a few seconds left."
+02F87  LOCATE 24, 3
+02F8A  GOSUB SUB_16B9
+L_2F8D:
+02F93  Prompt$ = "Who will fix it?"
+02F96  GOSUB SUB_15A6
+02FA2  IF Member! < 1 THEN GOTO L_2F8D
+02FA4  GOSUB SUB_1D8C
+02FB0  LOCATE 21, 3
+02FE5  IF RND * 100 >= FNCrew(Member!, 26) * 10 + 35 THEN GOTO L_3028
+L_2FEA:
+02FEA  PRINT "Life Support fixed at the"
+02FFF  LOCATE 22, 3
+03002  PRINT "last second!"
+03018  LOCATE 24, 3
+0301B  GOSUB SUB_16B9
+03024  LifeSuptCond! = 1
+03027  RETURN
+L_3028:
+03028  PRINT "As "; CrewName$(CINT(Member!)); " struggles with the life"
+03054  LOCATE 22, 3
+03057  PRINT "support systems your air runs out."
+L_3063:
+03063  GOSUB SUB_1DD0
+0306F  LOCATE 9, 3
+03072  PRINT "You Are All Dead"
+03084  T0! = TIMER
+L_3087:
+03096  IF TIMER - T0! < 15 THEN GOTO L_3087
+03098  END
+L_309B:
+0309B  GOSUB SUB_4186
+030A4  Moved! = 0
+030AA  Turned! = 0
+030B3  FOR J! = 1 TO 8
+L_30B6:
+0312D  G!(CINT(FNIdx(J!, 37))) = FNCrew(J!, 37) * (ABS(FNCrew(J!, 37) > 3))
+03139  NEXT J!
+L_314C:
+03158  ShipsN5! = NumEnemy! - 1
+03161  FOR I! = 0 TO ShipsN5!
+L_3164:
+0317A  IF Missiles!(CINT(I!)) >= 1 THEN GOTO L_31E9
+L_317F:
+03185  FOR Slot! = 0 TO 5
+L_3188:
+031CE  WeaponOK!(CINT(I!) * 6 + CINT(Slot!)) = (WeaponOK!(CINT(I!) * 6 + CINT(Slot!))) * (ABS(WeaponDmg!(CINT(I!) * 6 + CINT(Slot!)) > 0))
+031D9  NEXT Slot!
+L_31E9:
+031F2  NEXT I!
+L_3205:
+0320B  FOR Phase! = 1 TO 7
+L_320E:
+03214  Turned! = 0
+0321A  Moved! = 0
+03220  Jumped! = 0
+0322C  IF Phase! = 7 THEN GOTO L_3446
+L_3231:
+03231  GOSUB SUB_1D8C
+0323D  LOCATE 20, 12
+03240  PRINT "Movement Phase"; Phase!
+0329C  IF INT((CurMove! * Phase!) / 6 + 0.5) = INT(((Phase! - 1) * CurMove!) / 6 + 0.5) THEN GOTO L_33F7
+L_32A1:
+032AC  LOCATE 21, 3
+032AF  PRINT "A-Rotate CCW"
+032C5  LOCATE 22, 3
+032C8  PRINT "B-Rotate CW"
+032DD  LOCATE 23, 3
+032E0  PRINT "C-Scan"
+032F5  LOCATE 24, 3
+032F8  PRINT "D-Visual";
+03317  PUT (254, 160), Cursor, XOR
+03323  LOCATE 21, 17
+03326  PRINT "E-Skip Move"
+0333C  LOCATE 22, 17
+0333F  PRINT "F-Switch"
+03353  LOCATE 23, 17
+03356  PRINT "G-Time Delay"
+0336B  LOCATE 24, 17
+0336E  PRINT "H-Jump To Hyperspace";
+L_337A:
+03380  DX! = 0
+03386  DY! = 0
+03389  GOSUB SUB_1C3B
+03395  IF Cmd! = 40 THEN GOTO L_3231
+L_339A:
+033A0  ON CINT(Cmd!) GOSUB L_337A, L_46D7, L_337A, L_337A, L_46E3, L_337A, L_46FB, L_337A, L_337A, L_46EF, L_337A, L_4736, L_472A, L_47C4, SUB_4186, L_4729, L_3F42, L_722E, L_4936
+033EF  IF (Cmd! <> 16) AND (Turned! + Moved! = 0) THEN GOTO L_3231
+L_33F4:
+033F4  GOSUB SUB_1DAE
+L_33F7:
+03441  IF INT((Phase! * EnMoves!) / 6 + 0.5) = INT(((Phase! - 1) * EnMoves!) / 6 + 0.5) THEN GOTO L_3CD2
+L_3446:
+03452  ShipsN6! = NumEnemy! - 1
+0345B  FOR K! = 0 TO ShipsN6!
+L_345E:
+03476  AngleToMe! = FNAngle(K!, 5)
+0347F  BestScore! = 0
+034C6  IF ((Hull!(CINT(K!)) < 1) OR (CanTurn!(CINT(K!)) < 1)) AND (Phase! <> 7) THEN GOTO L_3943
+L_34CB:
+034D1  StepDir! = -1
+034DA  FOR HeadTry! = 7 TO 0
+L_34DE:
+034F0  RelAngle! = AngleToMe! - (HeadTry! * 45)
+034F8  IF RelAngle! >= 0 THEN GOTO L_3508
+L_34FD:
+03505  RelAngle! = RelAngle! + 360
+L_3508:
+03533  Facing!(CINT(K!)) = INT((RelAngle! + 45) / 90)
+0353E  IF Facing!(CINT(K!)) <= 3 THEN GOTO L_3548
+L_3543:
+03545  Facing!(CINT(K!)) = 3
+L_3548:
+03590  MoveScore!(CINT(HeadTry!)) = (Shield!(CINT(Facing!(CINT(K!))), CINT(K!)) > 0) * -40
+035BA  ArcA!(CINT(K!)) = INT(RelAngle! / 60)
+035EE  ArcB!(CINT(K!)) = (ArcA!(CINT(K!)) + 1) * (ABS(ArcA!(CINT(K!)) < 5))
+03642  Tmp2! = ABS(WeaponOK!(CINT(ArcB!(CINT(K!))) + CINT(K!) * 6) > 0) + ABS(WeaponOK!(CINT(ArcA!(CINT(K!))) + CINT(K!) * 6) > 0)
+03671  MoveScore!(CINT(HeadTry!)) = INT(MoveScore!(CINT(HeadTry!)) + SQR(Tmp2!) * 50)
+036A5  IF NOT ((Phase! = 7) AND (EnHeading!(CINT(K!)) = HeadTry!)) THEN GOTO L_36B5
+L_36AA:
+036AF  HeadTry! = 0
+036B2  GOTO L_36D3
+L_36B5:
+036CB  IF MoveScore!(CINT(HeadTry!)) <= BestScore! THEN GOTO L_36D3
+L_36D0:
+036D0  BestScore! = MoveScore!(CINT(HeadTry!))
+L_36D3:
+036DC  NEXT HeadTry! STEP StepDir!
+L_3705:
+0370E  IF Phase! = 7 THEN GOTO L_3CB6
+L_3713:
+03736  IF MoveScore!(CINT(EnHeading!(CINT(K!)))) = BestScore! THEN GOTO L_3943
+L_373B:
+03741  TurnCW! = 4
+03747  TurnCCW! = 4
+03765  HeadEnd1! = EnHeading!(CINT(K!)) + 3
+03770  FOR HeadTry! = EnHeading!(CINT(K!)) + 1 TO HeadEnd1!
+L_3774:
+03783  Tmp2! = FNMod8(HeadTry!)
+0379B  IF MoveScore!(CINT(Tmp2!)) <> BestScore! THEN GOTO L_37C6
+L_37A0:
+037BB  TurnCW! = HeadTry! - (EnHeading!(CINT(K!)))
+037C3  HeadTry! = 99
+L_37C6:
+037CF  NEXT HeadTry!
+037FA  HeadEnd2! = EnHeading!(CINT(K!)) - 3
+03803  StepDir2! = -1
+0380D  FOR HeadTry! = EnHeading!(CINT(K!)) - 1 TO HeadEnd2!
+L_3810:
+0381F  Tmp2! = FNMod8(HeadTry!)
+03837  IF MoveScore!(CINT(Tmp2!)) <> BestScore! THEN GOTO L_3862
+L_383C:
+03857  TurnCCW! = EnHeading!(CINT(K!)) - HeadTry!
+0385F  HeadTry! = -99
+L_3862:
+0386B  NEXT HeadTry! STEP StepDir2!
+L_3897:
+038C8  IF (Hull!(CINT(K!)) < 1) OR (CanTurn!(CINT(K!)) < 1) THEN GOTO L_3943
+L_38CD:
+038D3  Turned! = 1
+038E1  IF TurnCW! > TurnCCW! THEN GOTO L_3914
+L_38E6:
+0390E  EnHeading!(CINT(K!)) = FNMod8(EnHeading!(CINT(K!)) + 1)
+03911  GOTO L_3940
+L_3914:
+0393D  EnHeading!(CINT(K!)) = FNMod8(EnHeading!(CINT(K!)) - 1)
+L_3940:
+03940  GOTO L_3CB6
+L_3943:
+03987  IF (Hull!(CINT(K!)) < 1) OR ((EnFuel!(CINT(K!)) < 1) OR (CanMove!(CINT(K!)) < 1)) THEN GOTO L_3CB6
+L_398C:
+03992  BestScore! = 1e+20
+0399B  BestMove! = 4
+039EE  WantRange! = (EnTactic! = 2) * 3 + 6 - (EnStatus!(CINT(K!)) = 3) * 1000
+03A0D  WantSpacing! = (EnTactic! = 3) * 4 + 6
+03A1A  OldX! = EnX!(CINT(K!))
+03A26  OldY! = EnY!(CINT(K!))
+03A2F  FOR MoveTry! = 0 TO 4
+L_3A32:
+03A66  EnX!(CINT(K!)) = MoveDX!(CINT(MoveTry!)) + OldX!
+03A7F  EnY!(CINT(K!)) = MoveDY!(CINT(MoveTry!)) + OldY!
+03AB3  MoveScore!(CINT(MoveTry!)) = ((FNDist(K!, 5) - WantRange!) ^ 2) * 10
+03AD4  DistX! = ABS(EnX!(CINT(K!)) - EnX!(5))
+03AEB  DistY! = ABS(EnY!(CINT(K!)) - EnY!(5))
+03AF6  IF DistX! <= 6 THEN GOTO L_3B25
+L_3AFB:
+03B22  MoveScore!(CINT(MoveTry!)) = MoveScore!(CINT(MoveTry!)) + DistX! * 1000 - 6000
+L_3B25:
+03B2E  IF DistY! <= 6 THEN GOTO L_3B61
+L_3B33:
+03B5E  MoveScore!(CINT(MoveTry!)) = MoveScore!(CINT(MoveTry!)) + DistY! * 1000 - 6000
+L_3B61:
+03B6D  ShipsN7! = NumEnemy! - 1
+03B76  FOR Other! = 0 TO ShipsN7!
+L_3B7A:
+03B83  IF Other! = K! THEN GOTO L_3BF0
+L_3B88:
+03BA0  Dist2! = FNDist(K!, Other!)
+03BED  MoveScore!(CINT(MoveTry!)) = MoveScore!(CINT(MoveTry!)) - ((Dist2! < 2.5) * 10000) + ((Dist2! - WantSpacing!) ^ 2) * 3
+L_3BF0:
+03BF9  NEXT Other!
+L_3C0C:
+03C26  IF MoveScore!(CINT(MoveTry!)) >= BestScore! THEN GOTO L_3C36
+L_3C2B:
+03C2B  BestScore! = MoveScore!(CINT(MoveTry!))
+03C33  BestMove! = MoveTry!
+L_3C36:
+03C3F  NEXT MoveTry!
+L_3C52:
+03C5B  IF BestMove! = 4 THEN GOTO L_3CB6
+L_3C60:
+03C68  Moved! = 1
+03C9C  EnX!(CINT(K!)) = MoveDX!(CINT(BestMove!)) + OldX!
+03CB3  EnY!(CINT(K!)) = MoveDY!(CINT(BestMove!)) + OldY!
+L_3CB6:
+03CBF  NEXT K!
+L_3CD2:
+03CDE  DX! = EnX!(5) - 20
+03CEF  DY! = EnY!(5) - 10
+03D0C  IF NOT ((DY! <> 0) OR (DX! <> 0)) THEN GOTO L_3D68
+L_3D11:
+03D17  FOR I! = 0 TO 5
+L_3D1A:
+03D3A  EnX!(CINT(I!)) = EnX!(CINT(I!)) - DX!
+03D4D  EnY!(CINT(I!)) = EnY!(CINT(I!)) - DY!
+03D58  NEXT I!
+L_3D68:
+03D8A  IF NOT ((Turned! + Moved! > 0) AND (ViewMode! = 0)) THEN GOTO L_3D95
+L_3D8F:
+03D8F  GOSUB SUB_4186
+03D92  GOTO L_3DBC
+L_3D95:
+03DB4  IF NOT ((Moved! > 0) AND (ViewMode! = 1)) THEN GOTO L_3DBC
+L_3DB9:
+03DB9  GOSUB SUB_4469
+L_3DBC:
+03DC5  NEXT Phase!
+L_3DD8:
+03DD8  GOSUB SUB_2925
+03DE4  IF EnemyLeft! <> 1 THEN GOTO L_49E9
+L_3DE9:
+03DF5  ShipsN8! = NumEnemy! - 1
+03DFE  FOR I! = 0 TO ShipsN8!
+L_3E02:
+03E5F  IF (ABS(EnX!(CINT(I!)) - EnX!(5)) > 1) OR ((ABS(EnY!(CINT(I!)) - EnY!(5)) > 1) OR (EnStatus!(CINT(I!)) <= 2)) THEN GOTO L_3F23
+L_3E64:
+03E64  GOSUB SUB_1D8C
+03E70  LOCATE 20, 3
+03E73  PRINT "You have docked with"
+03E89  LOCATE 21, 3
+03E8C  PRINT EnemyName$; "."
+03EA6  LOCATE 24, 3
+03EA9  PRINT "Will you board? (Y/N)";
+03EB5  GOSUB SUB_1FD6
+03EBE  IF YesNo! = 0 THEN GOTO L_3F23
+L_3EC3:
+03ED8  G!(2266) = EnFuel!(CINT(I!))
+03EE6  EnStatus!(CINT(I!)) = 5
+03EEF  Terrain! = 10
+03EFA  Surprise! = 0
+03F02  Gravity10! = 10
+03F0E  BoardCrew! = Hull!(CINT(I!))
+03F17  Breathable! = 1
+03F1D  Boarding! = 1
+03F20  GOTO L_2C31
+L_3F23:
+03F2C  NEXT I!
+L_3F3F:
+03F3F  GOTO L_49E9
+L_3F42:
+03F48  Prompt$ = "Who will change positions?"
+03F4B  GOSUB SUB_15A6
+03F54  IF Member! = 0 THEN GOTO L_309B
+L_3F59:
+03F5F  Tmp2! = Member!
+03F68  Prompt$ = "Change with who?"
+03F6B  GOSUB SUB_15A6
+03F74  IF Member! = 0 THEN GOTO L_309B
+L_3F79:
+03FA2  G!(CINT(FNIdx(Member!, 37))) = 3
+03FCC  G!(CINT(FNIdx(Tmp2!, 37))) = 3
+0400A  RecDelta! = FNIdx(Tmp2!, 0) - FNIdx(Member!, 0)
+04027  RecEnd! = FNIdx(Tmp2!, 99)
+0403F  FOR K! = FNIdx(Tmp2!, 0) TO RecEnd!
+L_4042:
+04071  SWAP G!(CINT(K! - RecDelta!)), G!(CINT(K!))
+0407C  NEXT K!
+040B2  SWAP CrewName$(CINT(Member!)), CrewName$(CINT(Tmp2!))
+040C1  SwapSum! = Tmp2! + Member!
+040CA  FOR I! = 809 TO 1097
+L_40CE:
+040CE  GOSUB SUB_413A
+040DA  NEXT I! STEP 12
+040F0  FOR I! = 1102 TO 1399
+L_40F4:
+040F4  GOSUB SUB_413A
+04100  NEXT I! STEP 3
+04116  FOR I! = 2302 TO 2599
+L_411A:
+0411A  GOSUB SUB_413A
+04126  NEXT I! STEP 3
+04136  GOSUB SUB_173C
+04139  RETURN
+SUB_413A:
+04166  IF NOT ((G!(CINT(I!)) <> Member!) AND (G!(CINT(I!)) <> Tmp2!)) THEN GOTO L_416C
+L_416B:
+0416B  RETURN
+L_416C:
+04182  G!(CINT(I!)) = SwapSum! - (G!(CINT(I!)))
+04185  RETURN   'with FAC = SwapSum! - (G!(CINT(I!)))
+SUB_4186:
+0418C  ViewMode! = 0
+041A1  PUT (32, 0), HdrVisual, PSET
+041A4  GOSUB SUB_1DD0
+041A7  GOSUB SUB_434C
+041B0  StepDir3! = -1
+041BB  FOR I! = NumEnemy! - 1 TO 0
+L_41BE:
+04210  IF NOT ((EnY!(CINT(I!)) < 17) AND ((EnY!(CINT(I!)) > 3) AND ((EnX!(CINT(I!)) < 28) AND (EnX!(CINT(I!)) > 13)))) THEN GOTO L_425E
+L_4215:
+04224  PutX! = (EnX!(CINT(I!))) * 8 - 96
+04236  PutY! = (EnY!(CINT(I!))) * 8 - 16
+04248  ON CINT(EnHeading!(CINT(I!)) + 1) GOSUB L_4294, L_42AB, L_42C2, L_42D9, L_42F0, L_4307, L_431E, L_4335, L_4452
+L_425E:
+04267  NEXT I! STEP StepDir3!
+L_4290:
+04290  GOSUB SUB_434C
+04293  RETURN
+L_4294:
+042A7  PUT (PutX!, PutY!), EnShipHead0, OR
+042AA  RETURN
+L_42AB:
+042BE  PUT (PutX!, PutY!), EnShipHead1, OR
+042C1  RETURN
+L_42C2:
+042D5  PUT (PutX!, PutY!), EnShipHead2, OR
+042D8  RETURN
+L_42D9:
+042EC  PUT (PutX!, PutY!), EnShipHead3, OR
+042EF  RETURN
+L_42F0:
+04303  PUT (PutX!, PutY!), EnShipHead4, OR
+04306  RETURN
+L_4307:
+0431A  PUT (PutX!, PutY!), EnShipHead5, OR
+0431D  RETURN
+L_431E:
+04331  PUT (PutX!, PutY!), EnShipHead6, OR
+04334  RETURN
+L_4335:
+04348  PUT (PutX!, PutY!), EnShipHead7, OR
+0434B  RETURN
+SUB_434C:
+0435C  PutX! = EnX!(5) * 8 - 96
+0436F  PutY! = EnY!(5) * 8 - 16
+SUB_4372:
+0437E  ON CINT(ShipHeading! + 1) GOTO L_4392, L_43AA, L_43C2, L_43DA, L_43F2, L_440A, L_4422, L_443A
+L_4392:
+043A6  PUT (PutX!, PutY!), ShipHead0, PSET
+043A9  RETURN
+L_43AA:
+043BE  PUT (PutX!, PutY!), ShipHead1, PSET
+043C1  RETURN
+L_43C2:
+043D6  PUT (PutX!, PutY!), ShipHead2, PSET
+043D9  RETURN
+L_43DA:
+043EE  PUT (PutX!, PutY!), ShipHead3, PSET
+043F1  RETURN
+L_43F2:
+04406  PUT (PutX!, PutY!), ShipHead4, PSET
+04409  RETURN
+L_440A:
+0441E  PUT (PutX!, PutY!), ShipHead5, PSET
+04421  RETURN
+L_4422:
+04436  PUT (PutX!, PutY!), ShipHead6, PSET
+04439  RETURN
+L_443A:
+0444E  PUT (PutX!, PutY!), ShipHead7, PSET
+04451  RETURN
+L_4452:
+04465  PUT (PutX!, PutY!), Wreck, OR
+04468  RETURN
+SUB_4469:
+0446F  ViewMode! = 1
+04484  PUT (32, 0), HdrLongRange, PSET
+04487  GOSUB SUB_1DD0
+044A4  LINE (46, 9)-(46, 143)
+044BF  LINE (117, 9)-(117, 143)
+044DA  LINE (17, 43)-(141, 43)
+044F5  LINE (17, 109)-(141, 109)
+044FE  StepDir4! = -1
+04509  FOR I! = NumEnemy! - 1 TO 0
+L_450C:
+0455C  IF (EnY!(CINT(I!)) > 23) OR ((EnY!(CINT(I!)) < -3) OR ((EnX!(CINT(I!)) > 32) OR (EnX!(CINT(I!)) < 8))) THEN GOTO L_4631
+L_4561:
+04588  PutX! = (EnX!(CINT(I!))) * 5 - 23
+0459F  PutY! = (EnY!(CINT(I!))) * 5 + 24
+045AD  ON CINT(I! + 1) GOSUB L_45BE, L_45D5, L_45EC, L_4603, L_461A
+045BB  GOTO L_4631
+L_45BE:
+045D1  PUT (PutX!, PutY!), LetterA, OR
+045D4  RETURN
+L_45D5:
+045E8  PUT (PutX!, PutY!), LetterB, OR
+045EB  RETURN
+L_45EC:
+045FF  PUT (PutX!, PutY!), LetterC, OR
+04602  RETURN
+L_4603:
+04616  PUT (PutX!, PutY!), LetterD, OR
+04619  RETURN
+L_461A:
+0462D  PUT (PutX!, PutY!), LetterE, OR
+04630  RETURN
+L_4631:
+0463A  NEXT I! STEP StepDir4!
+L_4663:
+04677  PutX! = EnX!(5) * 5 - 23
+0468B  PutY! = EnY!(5) * 5 + 24
+0469E  PUT (PutX!, PutY!), LetterA, PRESET
+046AF  PUT (PutX!, PutY!), LetterA, XOR
+046D3  PUT (PutX! + 1, PutY! + 1), Star, XOR
+046D6  RETURN   'with FAC = PutX! + 1
+L_46D7:
+046DD  DY! = -1
+046E0  GOTO L_4704
+L_46E3:
+046E9  DX! = -1
+046EC  GOTO L_4704
+L_46EF:
+046F5  DY! = 1
+046F8  GOTO L_4704
+L_46FB:
+04701  DX! = 1
+L_4704:
+0470F  EnX!(5) = EnX!(5) + DX!
+0471D  EnY!(5) = EnY!(5) + DY!
+04726  Moved! = 1
+L_4729:
+04729  RETURN
+L_472A:
+04730  TurnDir! = 1
+04733  GOTO L_473F
+L_4736:
+0473C  TurnDir! = -1
+L_473F:
+04794  IF NOT ((FNCrew(1, 31) < 1) OR ((PowerCond! <> 1) OR ((RetrosCond! <> 1) OR (Fuel! < 1)))) THEN GOTO L_479D
+L_4799:
+04799  GOSUB SUB_1D61
+0479C  RETURN
+L_479D:
+047B4  ShipHeading! = FNMod8(ShipHeading! + TurnDir!)
+047B7  GOSUB SUB_18E2
+047C0  Turned! = 1
+047C3  RETURN
+L_47C4:
+047C4  GOSUB SUB_4469
+047C7  GOSUB SUB_1D8C
+047D3  LOCATE 20, 11
+047D6  PRINT "Enemy Report"
+047EE  ShipsN9! = NumEnemy! - 1
+047F7  FOR I! = 0 TO ShipsN9!
+L_47FA:
+0480C  Tmp2! = INT(I! / 3)
+0483E  LOCATE CINT(21 - (Tmp2! * 3) + I!), CINT(Tmp2! * 16 + 3)
+04841  PRINT CHR$(CINT(I! + 65)); "-";
+04873  IF EnStatus!(CINT(I!)) <> 2 THEN GOTO L_4887
+L_4878:
+04878  PRINT "Escaped"
+04884  GOTO L_48D8
+L_4887:
+0489D  IF EnStatus!(CINT(I!)) > 2 THEN GOTO L_48DB
+L_48A2:
+048B8  IF Hull!(CINT(I!)) >= 1 THEN GOTO L_48CC
+L_48BD:
+048BD  PRINT "Destroyed"
+048C9  GOTO L_48D8
+L_48CC:
+048CC  PRINT "Surrendered"
+L_48D8:
+048D8  GOTO L_490A
+L_48DB:
+048EA  IF FNInView(I!) <= 0 THEN GOTO L_48FE
+L_48EF:
+048EF  PRINT "In Range"
+048FB  GOTO L_490A
+L_48FE:
+048FE  PRINT "Out Of Range"
+L_490A:
+04913  NEXT I!
+L_4926:
+0492F  LOCATE 24, 3
+04932  GOSUB SUB_16B9
+04935  RETURN
+L_4936:
+0493C  Jumped! = 1
+0493F  GOSUB SUB_1D8C
+0494B  LOCATE 21, 3
+0494E  PRINT "Attempting jump to hyperspace..."
+0495A  GOSUB SUB_1693
+0495D  GOSUB SUB_1693
+04966  JumpFuel! = 40
+0496E  FuelUse! = JumpFuel!
+0497B  IF Fuel! >= JumpFuel! THEN GOTO L_4985
+L_4980:
+04982  FuelUse! = Fuel!
+L_4985:
+04985  GOSUB SUB_72BA
+04991  LOCATE 23, 3
+049B4  IF RND <= (FuelUse! / JumpFuel!) * 0.6 + 0.2 THEN GOTO L_49CB
+L_49B9:
+049B9  PRINT "Failed"
+049C5  GOSUB SUB_1693
+049C8  GOTO L_5164
+L_49CB:
+049CB  PRINT "Sucessfull"
+049DD  AmmoCount! = 2
+049E0  GOSUB SUB_2B67
+049E3  GOSUB SUB_1693
+049E6  GOTO L_2C10
+L_49E9:
+049EF  IF EnemyNear! = 0 THEN GOTO L_5164
+L_49F4:
+049FA  FOR J! = 3 TO 8
+L_49FE:
+04A6E  IF (FNCrew(J!, 37) = 3) OR ((G!(CINT(J! + 8)) <> 1) OR (FNCrew(J!, 31) = 0)) THEN GOTO L_5148
+L_4A73:
+04A98  G!(CINT(FNIdx(J!, 56))) = 0
+04A9B  GOSUB SUB_1D8C
+04AA7  LOCATE 20, 11
+04AAA  PRINT CrewName$(CINT(J!))
+04ACA  LOCATE 21, 3
+04ACD  PRINT "Ships In Range: ";
+04ADF  Command! = 0
+04AE5  Flag! = 0
+04AEE  StepDir5! = -1
+04AF9  FOR I! = NumEnemy! - 1 TO 0
+L_4AFC:
+04B1D  IF FNCanHit(J! - 3, I!) <> 1 THEN GOTO L_4B56
+L_4B22:
+04B22  PRINT CHR$(CINT(I! + 65)); " ";
+04B4B  Flag! = 1
+04B53  ShieldNo! = I!
+L_4B56:
+04B5F  NEXT I! STEP StepDir5!
+L_4B85:
+04B8B  IF Flag! <> 0 THEN GOTO L_4B9C
+L_4B90:
+04B90  PRINT "None"
+L_4B9C:
+04BAE  Ix! = J! * 7 + 669
+04BB7  IF Flag! <> 0 THEN GOTO L_4BC8
+L_4BBC:
+04BC2  Command! = 0
+04BC5  GOTO L_4D07
+L_4BC8:
+04BFB  IF FNCanHit(J! - 3, FNCrew(J!, 38)) <= 0 THEN GOTO L_4C1B
+L_4C00:
+04C18  ShieldNo! = FNCrew(J!, 38)
+L_4C1B:
+04C96  IF NOT ((FNCrew(J!, 38) = ShieldNo!) AND ((FNCrew(J!, 37) < 7) AND (FNCrew(J!, 37) > 3))) THEN GOTO L_4CD2
+L_4C9B:
+04CB3  Command! = FNCrew(J!, 37)
+04CCC  Command! = Command! - (Command! < 6)
+04CCF  GOTO L_4D07
+L_4CD2:
+04CED  IF FNCrew(J!, 37) <> 8 THEN GOTO L_4CFE
+L_4CF2:
+04CF8  Command! = 7
+04CFB  GOTO L_4D07
+L_4CFE:
+04D04  Command! = 1
+L_4D07:
+04D39  IF NOT ((Command! <> 0) AND (G!(CINT(Ix! + 5)) < 1)) THEN GOTO L_4D46
+L_4D3E:
+04D43  Command! = 2
+L_4D46:
+04D75  IF NOT ((Command! = 2) AND (G!(CINT(Ix!)) > 14)) THEN GOTO L_4D82
+L_4D7A:
+04D7F  Command! = 0
+L_4D82:
+04D8B  LOCATE 22, 3
+04D8E  PRINT "Command: "; CmdName$(CINT(Command!));
+04DCD  IF NOT ((Command! > 3) OR (Command! = 1)) THEN GOTO L_4E00
+L_4DD2:
+04DD2  PRINT " at ship "; CHR$(CINT(ShieldNo! + 65)); SPC(-(POS(0) - 34));
+04DFD  GOTO L_4E13
+L_4E00:
+04E00  PRINT SPC(-(POS(0) - 34));
+L_4E13:
+04E1C  LOCATE 23, 3
+04E1F  PRINT "ENTER to accept   ";
+04E5A  IF NOT (((Command! > 3) OR (Command! = 1)) AND (NumEnemy! > 1)) THEN GOTO L_4E85
+L_4E5F:
+04E5F  PRINT "A-"; CHR$(CINT(NumEnemy! + 64)); " to retarget"
+04E82  GOTO L_4E91
+L_4E85:
+04E85  PRINT SPC(15);
+L_4E91:
+04E9A  LOCATE 24, 3
+04E9D  PRINT "W-Wait F-Fire R-Rapid L-Load M-Aim";
+L_4EA9:
+04EAF  CmdMin! = 1
+04EB8  CmdMax! = 23
+04EBB  GOSUB SUB_1857
+04EC7  IF Cmd! = -32 THEN GOTO L_4EA9
+04ED2  IF Cmd! = -51 THEN GOTO L_502E
+L_4ED7:
+04EDD  ON CINT(Cmd!) GOSUB L_4F12, L_4F12, L_4F12, L_4F12, L_4F12, L_4FAF, L_4EA9, L_4EA9, L_4EA9, L_4EA9, L_4EA9, L_4FC6, L_4FD0, L_4EA9, L_4EA9, L_4EA9, L_4EA9, L_500C, L_4EA9, L_4EA9, L_4EA9, L_4EA9, L_5024
+04F0F  GOTO L_4D07
+L_4F12:
+04F20  NewTarget! = Cmd! - 1
+04F61  IF NOT ((FNCanHit(J! - 3, NewTarget!) < 1) OR (Cmd! > NumEnemy!)) THEN GOTO L_4F67
+L_4F66:
+04F66  RETURN   'with FAC = FNCanHit(J! - 3, NewTarget!)
+L_4F67:
+04F99  IF NOT ((Command! < 7) AND ((Command! > 4) AND (ShieldNo! <> NewTarget!))) THEN GOTO L_4FA5
+L_4F9E:
+04FA2  Command! = 4
+L_4FA5:
+04FAB  ShieldNo! = NewTarget!
+04FAE  RETURN
+L_4FAF:
+04FB8  IF Flag! <> 1 THEN GOTO L_4FC5
+L_4FBD:
+04FC2  Command! = 1
+L_4FC5:
+04FC5  RETURN
+L_4FC6:
+04FCC  Command! = 2
+04FCF  RETURN
+L_4FD0:
+04FD9  IF Flag! <> 1 THEN GOTO L_500B
+L_4FDE:
+04FFF  IF NOT ((Command! > 6) OR (Command! < 4)) THEN GOTO L_500B
+L_5004:
+05008  Command! = 4
+L_500B:
+0500B  RETURN
+L_500C:
+05015  IF Flag! <> 1 THEN GOTO L_5023
+L_501A:
+05020  Command! = 7
+L_5023:
+05023  RETURN
+L_5024:
+0502A  Command! = 0
+0502D  RETURN
+L_502E:
+050A9  IF NOT ((FNCrew(J!, 38) = ShieldNo!) AND ((FNCrew(J!, 37) < 7) AND (FNCrew(J!, 37) > 3))) THEN GOTO L_50F6
+L_50AE:
+050F3  G!(CINT(FNIdx(J!, 56))) = FNCrew(J!, 37) - 3
+L_50F6:
+0511D  G!(CINT(FNIdx(J!, 38))) = ShieldNo!
+05145  G!(CINT(FNIdx(J!, 37))) = Command!
+L_5148:
+05151  NEXT J!
+L_5164:
+0516A  PlayerFired! = 0
+0516D  GOSUB SUB_1D8C
+05179  IF ViewMode! <> 1 THEN GOTO L_5181
+L_517E:
+0517E  GOSUB SUB_4186
+L_5181:
+0519D  GET (16, 12)-(143, 139), ViewSave
+051C3  MissileKillPct2! = ABS(MisKillerCond! = 1) * MissileKillPct!
+051E8  DefHwPct2! = ABS(DefSysCond! = 1) * DefHardwarePct!
+051F1  EnHeading!(5) = ShipHeading!
+0524C  EnHitPct! = 50 - ((FNCrew(1, 17) * (SGN(FNCrew(1, 31)))) * 5) - Defence! - DefHwPct2! + EnHitBonus!
+05258  IF EnHitPct! >= 10 THEN GOTO L_5265
+L_525D:
+0525F  EnHitPct! = 10
+05262  GOTO L_5278
+L_5265:
+0526E  IF EnHitPct! <= 90 THEN GOTO L_5278
+L_5273:
+05275  EnHitPct! = 90
+L_5278:
+05284  ShipsN10! = NumEnemy! - 1
+0528D  FOR I! = 0 TO ShipsN10!
+L_5290:
+05296  FOR Slot! = 0 TO 5
+L_529A:
+052C2  WeaponOK!(CINT(I!) * 6 + CINT(Slot!)) = SGN(WeaponOK!(CINT(I!) * 6 + CINT(Slot!)))
+052CD  NEXT Slot!
+052E6  NEXT I!
+05302  TimeStep! = GunRange! * (-0.25)
+0530E  FOR TimeSlot! = GunMax! + 1 TO 0
+L_5312:
+0531B  IF TimeSlot! >= GunMin! THEN GOTO L_5328
+L_5320:
+05325  TimeSlot! = 0
+L_5328:
+0532E  FOR Member! = 3 TO 8
+L_5332:
+0534C  Command! = FNCrew(Member!, 37)
+05383  IF (FNCrew(Member!, 1) < TimeSlot!) OR (Command! = 0) THEN GOTO L_5A44
+L_5388:
+053E0  IF (Command! = 8) OR ((G!(CINT(Member! + 8)) <> 1) OR ((Command! < 7) AND (Command! > 2))) THEN GOTO L_5A44
+L_53E5:
+053F7  GunRec! = Member! * 7 + 669
+0540C  IF G!(CINT(GunRec!)) = 0 THEN GOTO L_5A44
+L_5411:
+05455  G!(CINT(FNIdx(Member!, 37))) = -((Command! = 7) * 8)
+05460  IF Command! <> 2 THEN GOTO L_555D
+L_5465:
+0546B  Flag! = 0
+05481  GunNo! = G!(CINT(GunRec!))
+0548A  FOR K! = 340 TO 369
+L_548E:
+054A8  IF G!(CINT(K!)) <> GunNo! THEN GOTO L_54FE
+L_54AD:
+054B2  G!(CINT(K!)) = 0
+054BA  K! = 369
+054F2  G!(CINT(GunRec! + 5)) = G!(CINT(GunRec! + 2))
+054FB  Flag! = 1
+L_54FE:
+05507  NEXT K!
+L_551A:
+05523  IF Flag! <> 1 THEN GOTO L_555A
+L_5528:
+05528  GOSUB SUB_1D8C
+05534  LOCATE 22, 3
+05537  PRINT CrewName$(CINT(Member!)); " Reloads"
+05554  GOSUB SUB_1831
+05557  GOTO L_5A16
+L_555A:
+0555A  GOTO L_5A44
+L_555D:
+05577  ShieldNo! = FNCrew(Member!, 38)
+05599  GunNo! = G!(CINT(GunRec!)) - 1
+056FF  HitPct! = FNCrew(Member!, 18) * 5 + FNCrew(Member!, 10) + G!(CINT(GunRec! + 4)) + 100 / (FNDist(5, ShieldNo!) + 1) - ((FNCrew(Member!, 56) > 2) * 20) - ((FNCrew(Member!, 56) > 1) * 30) - ((FNCrew(Member!, 56) > 0) * 50) + (EnDefence!(CINT(ShieldNo!))) * (Hull!(CINT(ShieldNo!)) > 0) + 50
+0570D  IF Command! <> 7 THEN GOTO L_571F
+L_5712:
+0571C  HitPct! = HitPct! * 0.5
+L_571F:
+05728  IF HitPct! >= 10 THEN GOTO L_5735
+L_572D:
+0572F  HitPct! = 10
+05732  GOTO L_5748
+L_5735:
+0573E  IF HitPct! <= 90 THEN GOTO L_5748
+L_5743:
+05745  HitPct! = 90
+L_5748:
+05748  GOSUB SUB_1D8C
+05754  LOCATE 20, 3
+05757  PRINT CrewName$(CINT(Member!)); " fires"
+0577E  LOCATE 21, 3
+05781  PRINT GunName$(CINT(GunNo!))
+0579E  Hits! = 0
+057A4  EnemyLeft! = 0
+057AA  HullBreach! = 0
+057B0  CrewKilled! = 0
+057B6  AllDead! = 0
+057BC  DamageDone! = 0
+057DA  IsBeam! = ABS(GunNo! > 13)
+05816  Shots! = (G!(CINT(GunRec! + 6))) * (1 - (Command! = 7))
+0581F  FOR Shot! = 1 TO Shots!
+L_5822:
+05873  IF ((Fuel! < 1) AND (IsBeam! = 1)) OR ((G!(CINT(GunRec! + 5)) < 1) AND (IsBeam! = 0)) THEN GOTO L_591A
+L_5878:
+05881  IF IsBeam! <> 1 THEN GOTO L_5894
+L_5886:
+0588B  FuelUse! = 1
+0588E  GOSUB SUB_72BA
+05891  GOTO L_58B7
+L_5894:
+058B4  G!(CINT(GunRec! + 5)) = G!(CINT(GunRec! + 5)) - 1
+L_58B7:
+058D8  HitFlag! = ABS(RND * 100 < HitPct!)
+058E3  IF HitFlag! <> 1 THEN GOTO L_5900
+L_58E8:
+058F2  Hits! = Hits! + 1
+058FA  PlayerFired! = 1
+058FD  GOTO L_590E
+L_5900:
+0590B  Misses! = Misses! + 1
+L_590E:
+05914  Flag! = 0
+05917  GOSUB SUB_6523
+L_591A:
+05923  NEXT Shot!
+L_5936:
+0593F  LOCATE 22, 3
+05942  PRINT "making"; Hits!; "hits"
+05963  IF Hits! < 1 THEN GOTO L_5A16
+L_5968:
+05971  LOCATE 23, 3
+0597A  IF DamageDone! <= 0 THEN GOTO L_5990
+L_597F:
+0597F  PRINT DamageDone!; "points of damage done."
+L_5990:
+05999  LOCATE 24, 3
+059A2  IF AllDead! <= 0 THEN GOTO L_59BC
+L_59A7:
+059A7  PRINT EnemyName$; " destroyed!";
+059B9  GOTO L_5A16
+L_59BC:
+059C2  IF CrewKilled! <= 0 THEN GOTO L_59D6
+L_59C7:
+059C7  PRINT "Some crew members killed.";
+059D3  GOTO L_5A16
+L_59D6:
+059DC  IF HullBreach! <= 0 THEN GOTO L_59F0
+L_59E1:
+059E1  PRINT "Hull breached.";
+059ED  GOTO L_5A16
+L_59F0:
+059F6  IF EnemyLeft! <= 0 THEN GOTO L_5A0A
+L_59FB:
+059FB  PRINT "Armor reduced.";
+05A07  GOTO L_5A16
+L_5A0A:
+05A0A  PRINT "Shields absorb damage.";
+L_5A16:
+05A1C  DelayN2! = DelayN!
+05A25  FOR I! = 1 TO DelayN2!
+L_5A28:
+05A28  GOSUB SUB_13D5
+05A34  NEXT I!
+L_5A44:
+05A4D  NEXT Member!
+L_5A60:
+05A66  IF Hostile! = 0 THEN GOTO L_5B07
+L_5A6B:
+05A71  Shooter! = 5
+05A80  ShipsN11! = NumEnemy! - 1
+05A89  FOR EnShip! = 0 TO ShipsN11!
+L_5A8C:
+05A9B  IF FNInView(EnShip!) = 0 THEN GOTO L_5AEE
+L_5AA0:
+05AB3  EnSlot! = ArcA!(CINT(EnShip!))
+05AB6  GOSUB SUB_5B84
+05ABF  IF IsBeam! <> 0 THEN GOTO L_5AC7
+L_5AC4:
+05AC4  GOSUB SUB_5B84
+L_5AC7:
+05ADA  EnSlot! = ArcB!(CINT(EnShip!))
+05ADD  GOSUB SUB_5B84
+05AE6  IF IsBeam! <> 0 THEN GOTO L_5AEE
+L_5AEB:
+05AEB  GOSUB SUB_5B84
+L_5AEE:
+05AF7  NEXT EnShip!
+L_5B07:
+05B10  NEXT TimeSlot! STEP TimeStep!
+L_5B39:
+05B74  IF NOT ((RND * 100 < EnAttitude! * 25 - 25) OR (PlayerFired! = 1)) THEN GOTO L_5B81
+L_5B79:
+05B7E  Hostile! = 1
+L_5B81:
+05B81  GOTO L_2088
+SUB_5B84:
+05BE2  IF NOT ((Hull!(CINT(EnShip!)) + RND * 4 < 4) OR ((WeaponOK!(CINT(EnSlot!) + CINT(EnShip!) * 6) = 2) OR (WeaponOK!(CINT(EnSlot!) + CINT(EnShip!) * 6) = 0))) THEN GOTO L_5BE8
+L_5BE7:
+05BE7  RETURN   'with FAC = Hull!(CINT(EnShip!)) + RND * 4
+L_5BE8:
+05C12  IF ABS(WeaponDmg!(CINT(EnSlot!) + CINT(EnShip!) * 6)) >= TimeSlot! THEN GOTO L_5C18
+L_5C17:
+05C17  RETURN   'with FAC = ABS(WeaponDmg!(CINT(EnSlot!) + CINT(EnShip!) * 6))
+L_5C18:
+05C50  IsBeam! = ABS(WeaponDmg!(CINT(EnSlot!) + CINT(EnShip!) * 6) > 0)
+05CA5  IF NOT (((RND * 20 > EnFuel!(CINT(EnShip!))) AND (IsBeam! = 1)) OR ((Missiles!(CINT(EnShip!)) < 1) AND (IsBeam! = 0))) THEN GOTO L_5CAB
+L_5CAA:
+05CAA  RETURN   'with FAC = RND * 20
+L_5CAB:
+05CB1  Flag! = 0
+05CDD  IF NOT ((RND * 100 < MissileKillPct2!) AND (IsBeam! = 0)) THEN GOTO L_5CEA
+L_5CE2:
+05CE7  Flag! = 1
+L_5CEA:
+05CEA  GOSUB SUB_1D8C
+05CF6  LOCATE 20, 3
+05CF9  PRINT EnemyName$
+05D0F  LOCATE 21, 3
+05D12  PRINT "fires and ";
+05D40  Damage! = TblMissileDmg! * IsBeam! + (1 - IsBeam!) * TblGunDmg!
+05D62  Damage! = INT((RND ^ 0.5) * Damage! + 0.5)
+05DB0  HitFacing! = INT((FNNorm(FNAngle(5, EnShip!) - (ShipHeading! * 45) + 45) + 180) / 90)
+05E06  Damage! = (G!(CINT(HitFacing! + 7)) = 1) * (G!(CINT(HitFacing! * 3 + 67))) + Damage!
+05E27  EnFuel!(CINT(EnShip!)) = EnFuel!(CINT(EnShip!)) - IsBeam!
+05E41  Missiles!(CINT(EnShip!)) = Missiles!(CINT(EnShip!)) + IsBeam! - 1
+05E78  HitFlag! = ABS(RND * 100 < EnHitPct!) * (1 - Flag!)
+05E85  ON CINT(IsBeam! + 1) GOSUB L_6B7A, L_6A48
+05ED3  WeaponOK!(CINT(EnShip!) * 6 + CINT(EnSlot!)) = (WeaponOK!(CINT(EnShip!) * 6 + CINT(EnSlot!)) = 1) * (IsBeam! = 0) + 2
+05EDC  IF HitFlag! <> 0 THEN GOTO L_5F43
+L_5EE1:
+05EE1  PRINT "misses."
+05EF3  IF Flag! = 0 THEN GOTO L_62D6
+L_5EF8:
+05F01  LOCATE 23, 3
+05F04  PRINT "Intercepted by"
+05F1A  LOCATE 24, 3
+05F1D  PRINT MissileKillerName$(CINT(MissileKiller! + -1)); ".";
+05F40  GOTO L_62A2
+L_5F43:
+05F43  PRINT "hits."
+05F58  LOCATE 22, 3
+05F61  IF Damage! > 0 THEN GOTO L_5F75
+L_5F66:
+05F66  PRINT "Shields absorb damage."
+05F72  GOTO L_62A2
+L_5F75:
+05F7B  DmgExp! = 0.7
+05F8F  Armor! = INT(Armor! - Damage!)
+05F97  IF Armor! <= 0 THEN GOTO L_5FE6
+L_5F9C:
+05F9C  GOSUB SUB_16E9
+05FA5  AllDead! = 0
+05FAE  HitSlot! = -1
+05FBA  IF RND >= 0.6 THEN GOTO L_5FCB
+L_5FBF:
+05FC5  DmgExp! = 0.5
+05FC8  GOTO L_5FE6
+L_5FCB:
+05FD4  LOCATE 22, 3
+05FD7  PRINT "Armor reduced."
+05FE3  GOTO L_60D0
+L_5FE6:
+06002  HitSlot! = INT((RND ^ DmgExp!) * 25)
+06043  IF ((((HitSlot! < 17) AND (HitSlot! > 6)) OR (HitSlot! < 4)) AND (DmgExp! < 0.7)) THEN GOTO L_5FE6
+0604B  IF Armor! >= 0 THEN GOTO L_605B
+L_6050:
+06055  Armor! = 0
+06058  GOSUB SUB_16E9
+L_605B:
+06064  LOCATE 22, 3
+0607D  IF G!(CINT(HitSlot!)) = 1 THEN GOTO L_609A
+L_6082:
+06082  PRINT "Hull breached."
+06094  HullCond! = 2
+06097  GOTO L_60D0
+L_609A:
+060A0  IF Armor! > 0 THEN GOTO L_60D0
+L_60A5:
+060BA  G!(CINT(HitSlot!)) = 2
+060BD  PRINT EquipName$(CINT(HitSlot!)); " destroyed."
+L_60D0:
+060E3  PUT (16, 12), ViewSave, PRESET
+060F5  PUT (16, 12), ViewSave, PSET
+060FE  IF HitSlot! <= 0 THEN GOTO L_612D
+L_6103:
+06103  GOSUB SUB_1474
+06125  IF NOT ((HitSlot! < 11) AND (HitSlot! > 6)) THEN GOTO L_612D
+L_612A:
+0612A  GOSUB SUB_18E2
+L_612D:
+06136  IF HitSlot! <> 18 THEN GOTO L_6144
+L_613B:
+06141  MissileKillPct2! = 0
+L_6144:
+06163  IF NOT ((HitSlot! < 17) AND (HitSlot! > 8)) THEN GOTO L_624A
+L_6168:
+06171  Member! = HitSlot! - 8
+061AA  IF NOT ((FNCrew(Member!, 31) > 0) AND (RND < 0.5)) THEN GOTO L_624A
+L_61AF:
+061D6  G!(CINT(FNIdx(Member!, 31))) = 0
+061FE  G!(CINT(FNIdx(Member!, 15))) = 0
+0620A  LOCATE 24, 3
+0620D  PRINT CrewName$(CINT(Member!)); " dies.";
+06233  AllDead! = 0
+06236  GOSUB SUB_173C
+06239  GOSUB SUB_72E9
+06247  MyStrength! = MyStrength! * 0.68
+L_624A:
+06250  IF AllDead! = 0 THEN GOTO L_62A2
+L_6255:
+0625B  FOR I! = 1 TO 10
+L_625E:
+06271  PUT (16, 12), ViewSave, PRESET
+06283  PUT (16, 12), ViewSave, PSET
+0628F  NEXT I!
+0629F  GOTO L_3063
+L_62A2:
+062AE  DelayN3! = DelayN! * 0.2
+062B7  FOR I! = 1 TO DelayN3!
+L_62BA:
+062BA  GOSUB SUB_13D5
+062C6  NEXT I!
+L_62D6:
+062E2  DelayN4! = DelayN! * 0.3
+062EB  FOR I! = 1 TO DelayN4!
+L_62EE:
+062EE  GOSUB SUB_13D5
+062FA  NEXT I!
+0630A  RETURN
+SUB_630B:
+06327  X1! = FNShotX(EnSlot!, EnShip!)
+06344  Y1! = FNShotY(EnSlot!, EnShip!)
+06375  X2! = FNShotX(INT(RND * 6), Shooter!) + 0.5
+063A4  Y2! = FNShotY(INT(RND * 6), Shooter!) + 0.5
+063B0  IF HitFlag! <> 1 THEN GOTO L_63B6
+L_63B5:
+063B5  RETURN   'with FAC = Y2!
+L_63B6:
+063DE  DX! = X2! - INT(RND * 21) - X1! + 10
+06403  DY! = Y2! - INT(RND * 21) - Y1! + 10
+0640F  IF Flag! <> 1 THEN GOTO L_6440
+L_6414:
+06428  X2! = DX! * 0.55 + X1!
+0643C  Y2! = DY! * 0.55 + Y1!
+0643F  RETURN   'with FAC = Y2!
+L_6440:
+0645C  IF (DY! = 0) OR (DX! = 0) THEN GOTO L_63B6
+L_6461:
+06467  IF DX! <= 0 THEN GOTO L_6478
+L_646C:
+06472  EdgeX! = 142
+06475  GOTO L_6481
+L_6478:
+0647E  EdgeX! = 17
+L_6481:
+06487  IF DY! <= 0 THEN GOTO L_6498
+L_648C:
+06492  EdgeY! = 139
+06495  GOTO L_64A1
+L_6498:
+0649E  EdgeY! = 12
+L_64A1:
+064B3  Scale! = (EdgeX! - X1!) / DX!
+064CA  Scale2! = (EdgeY! - Y1!) / DY!
+064D4  IF Scale2! >= Scale! THEN GOTO L_64DC
+L_64D9:
+064D9  Scale! = Scale2!
+L_64DC:
+06500  Y2! = INT(DY! * Scale! + Y1! + 0.5)
+0651F  X2! = INT(DX! * Scale! + X1! + 0.5)
+06522  RETURN   'with FAC = X2!
+SUB_6523:
+06584  Damage! = INT((RND ^ 0.5) * (G!(CINT(GunRec! + 1))) - (Shield!(CINT(Facing!(CINT(ShieldNo!))), CINT(ShieldNo!))))
+06593  EnSlot! = Member! - 3
+0659C  Shooter! = ShieldNo!
+065A5  EnShip! = 5
+065B4  ON CINT(IsBeam! + 1) GOSUB L_6B7A, L_6A48
+065D8  IF NOT ((HitFlag! = 0) OR (Damage! < 0)) THEN GOTO L_65DE
+L_65DD:
+065DD  RETURN   'with FAC = IsBeam! + 1
+L_65DE:
+065E4  EnemyLeft! = 1
+065F4  DamageDone! = DamageDone! + Damage!
+06612  EnArmor!(CINT(ShieldNo!)) = EnArmor!(CINT(ShieldNo!)) - Damage!
+0661A  IF EnArmor!(CINT(ShieldNo!)) < 0 THEN GOTO L_6620
+L_661F:
+0661F  RETURN   'with FAC = EnArmor!(CINT(ShieldNo!)) - Damage!
+L_6620:
+06626  HullBreach! = 1
+0666C  IF NOT ((EnHeading!(CINT(ShieldNo!)) <> 8) AND (RND * (-100) > EnArmor!(CINT(ShieldNo!)))) THEN GOTO L_6680
+L_6671:
+0667A  Hull!(CINT(ShieldNo!)) = 0
+0667D  GOTO L_67E8
+L_6680:
+06693  EnArmor!(CINT(ShieldNo!)) = 0
+066B4  ON CINT(INT(SQR(RND) * 10 + 1)) GOTO L_66CA, L_66CB, L_66E2, L_66F9, L_66CA, L_6717, L_6717, L_6744, L_6717
+L_66CA:
+066CA  RETURN
+L_66CB:
+066DE  CanMove!(CINT(ShieldNo!)) = 0
+066E1  RETURN
+L_66E2:
+066F5  CanTurn!(CINT(ShieldNo!)) = 0
+066F8  RETURN
+L_66F9:
+06713  EnDefence!(CINT(ShieldNo!)) = EnDefence!(CINT(ShieldNo!)) - (ABS(EnDefence!(CINT(ShieldNo!))))
+06716  RETURN   'with FAC = EnDefence!(CINT(ShieldNo!)) - (ABS(EnDefence!(CINT(ShieldNo!))))
+L_6717:
+06740  Shield!(CINT(INT(RND * 4)), CINT(ShieldNo!)) = 0
+06743  RETURN   'with FAC = INT(RND * 4)
+L_6744:
+06756  EnSlot! = INT(RND * 6)
+0677C  WeaponOK!(CINT(ShieldNo!) * 6 + CINT(EnSlot!)) = 0
+067A4  IF RND * 22 >= Hull!(CINT(ShieldNo!)) + 10 THEN GOTO L_67E7
+L_67A9:
+067B1  CrewKilled! = SGN(Hull!(CINT(ShieldNo!)))
+067BE  Hull!(CINT(ShieldNo!)) = Hull!(CINT(ShieldNo!)) - 1
+067CC  EnStrength! = EnStrength! * 0.68
+067D7  IF Hull!(CINT(ShieldNo!)) >= 1 THEN GOTO L_67E7
+L_67DC:
+067E4  EnStatus!(CINT(ShieldNo!)) = 1
+L_67E7:
+067E7  RETURN
+L_67E8:
+06807  X2! = (EnX!(CINT(ShieldNo!))) * 8 - 104
+0681F  Y2! = (EnY!(CINT(ShieldNo!))) * 8 - 24
+0684C  GET (X2!, Y2!)-(X2! + 39, Y2! + 39), SaveArea
+0685C  PUT (X2!, Y2!), Boom1, OR
+0685F  GOSUB SUB_6E0A
+06875  PUT (X2!, Y2!), Boom2, OR
+06878  GOSUB SUB_6E0A
+0688E  PUT (X2!, Y2!), Boom3, OR
+06891  GOSUB SUB_6E0A
+068A7  PUT (X2!, Y2!), Boom4, OR
+068AA  GOSUB SUB_6E0A
+068B6  IF EnTonnage! >= 130 THEN GOTO L_6948
+L_68BB:
+068CF  PUT (X2!, Y2!), SmallBoom1, XOR
+068D2  GOSUB SUB_6E0A
+068E9  PUT (X2!, Y2!), SmallBoom2, XOR
+068EC  GOSUB SUB_6E0A
+06903  PUT (X2!, Y2!), SmallBoom3, XOR
+06906  GOSUB SUB_6E0A
+0691D  PUT (X2!, Y2!), SaveArea, PSET
+06942  PUT (X2! + 8, Y2! + 8), Wreck, PSET
+06945  GOTO L_69EC
+L_6948:
+0695C  PUT (X2!, Y2!), BigBoom1, XOR
+0695F  GOSUB SUB_6E7C
+06976  PUT (X2!, Y2!), BigBoom2, XOR
+06979  GOSUB SUB_6E7C
+06990  PUT (X2!, Y2!), BigBoom3, XOR
+06993  GOSUB SUB_6E7C
+069AA  PUT (X2!, Y2!), BigBoom4, XOR
+069AD  GOSUB SUB_6E7C
+069C4  PUT (X2!, Y2!), SaveArea, PSET
+069E9  PUT (X2! + 8, Y2! + 8), Wreck, PSET
+L_69EC:
+06A01  EnHeading!(CINT(ShieldNo!)) = 8
+06A0A  AllDead! = 1
+06A2C  GET (16, 12)-(143, 139), ViewSave
+06A36  EnStatus!(CINT(ShieldNo!)) = 1
+06A44  EnStrength! = EnStrength! * 0.26
+06A47  RETURN   'with FAC = EnStrength!
+L_6A48:
+06A48  GOSUB SUB_630B
+06A67  LINE (X1!, Y1!)-(X2!, Y2!), 1
+06A80  SOUND 7777, SndDur! * 1.5
+06A91  SOUND 8888, SndDur!
+06AA9  SOUND 9999, SndDur! * 2
+06AC1  SOUND 11111, SndDur! * 4
+06AE0  LINE (X1!, Y1!)-(X2!, Y2!), 2
+L_6AE3:
+06AE9  IF HitFlag! = 0 THEN GOTO L_6B63
+L_6AEE:
+06AFB  X2! = X2! - 12
+06B08  Y2! = Y2! - 12
+06B35  GET (X2!, Y2!)-(X2! + 23, Y2! + 23), SaveArea
+06B3E  IF Damage! <= 0 THEN GOTO L_6B49
+L_6B43:
+06B43  GOSUB SUB_6EEE
+06B46  GOTO L_6B4C
+L_6B49:
+06B49  GOSUB SUB_6F3A
+L_6B4C:
+06B60  PUT (X2!, Y2!), SaveArea, PSET
+L_6B63:
+06B76  PUT (16, 12), ViewSave, PSET
+06B79  RETURN
+L_6B7A:
+06B7A  GOSUB SUB_630B
+06B89  DX! = X2! - X1!
+06B9A  DY! = Y2! - Y1!
+06BBE  BeamStep! = 2 / (ABS(DX!) + ABS(DY!) + 1e-06)
+06BC7  BeamStep2! = BeamStep!
+06BD0  FOR ShieldStr! = 0 TO 1
+L_6BD4:
+06BE8  PutX! = DX! * ShieldStr! + X1!
+06BFC  PutY! = DY! * ShieldStr! + Y1!
+06BFF  GOSUB SUB_6D58
+06C19  SOUND 4444, SndDur! * 0.3
+06C1C  GOSUB SUB_6D58
+06C30  BeamPhase! = NOT (CINT(BeamPhase!))
+06C3C  NEXT ShieldStr! STEP BeamStep2!
+L_6C6B:
+06C71  IF Flag! = 0 THEN GOTO L_6AE3
+L_6C76:
+06C95  LINE (76, 76)-(X2!, Y2!), 2
+06CAE  SOUND 777, SndDur! * 0.6
+06CC8  SOUND 888, SndDur! * 0.5
+06CE2  SOUND 666, SndDur! * 0.7
+06CFC  SOUND 777, SndDur! * 0.4
+06D16  SOUND 700, SndDur! * 0.8
+06D30  SOUND 800, SndDur! * 0.6
+06D52  LINE (76, 76)-(X2!, Y2!), 3
+06D55  GOTO L_6AEE
+SUB_6D58:
+06D60  IF (BeamPhase! = 0) THEN GOTO L_6D7F
+L_6D65:
+06D79  PUT (PutX!, PutY!), Plus, XOR
+06D7C  GOTO L_6D96
+L_6D7F:
+06D93  PUT (PutX!, PutY!), Star, XOR
+L_6D96:
+06D96  RETURN
+SUB_6D97:
+06D9F  IF (SndDur! = 0) THEN GOTO L_6E09
+L_6DA4:
+06DAA  FOR N! = 1 TO 14
+L_6DAE:
+06DDC  SOUND CINT(RND * 32 + 57), RND / 200 + 0.0275
+06DE8  NEXT N!
+06E06  SOUND 60, 0.09000001
+L_6E09:
+06E09  RETURN
+SUB_6E0A:
+06E12  IF (SndDur! = 0) THEN GOTO L_6E7B
+L_6E17:
+06E1D  FOR N! = 1 TO 4
+L_6E20:
+06E4E  SOUND CINT(RND * 32 + 37), RND / 300 + 0.0275
+06E5A  NEXT N!
+06E78  SOUND 40, 0.07000001
+L_6E7B:
+06E7B  RETURN
+SUB_6E7C:
+06E84  IF (SndDur! = 0) THEN GOTO L_6EED
+L_6E89:
+06E8F  FOR N! = 1 TO 7
+L_6E92:
+06EC0  SOUND CINT(RND * 32 + 37), RND / 200 + 0.0275
+06ECC  NEXT N!
+06EEA  SOUND 40, 0.07000001
+L_6EED:
+06EED  RETURN
+SUB_6EEE:
+06F01  PUT (X2!, Y2!), Hit1, OR
+06F04  GOSUB SUB_6D97
+06F1A  PUT (X2!, Y2!), Hit2, OR
+06F1D  GOSUB SUB_6D97
+06F33  PUT (X2!, Y2!), Hit3, OR
+06F36  GOSUB SUB_6D97
+06F39  RETURN
+SUB_6F3A:
+06F48  ExpX! = X2! + 4
+06F56  ExpY! = Y2! + 4
+06F69  PUT (ExpX!, ExpY!), Flash1, XOR
+06F82  SOUND 1444, SndDur! * 0.7
+06F99  PUT (ExpX!, ExpY!), Flash2, XOR
+06FB2  SOUND 2666, SndDur! * 0.5
+06FC9  PUT (ExpX!, ExpY!), Flash3, XOR
+06FE2  SOUND 1555, SndDur! * 0.6
+06FE5  RETURN   'with FAC = SndDur! * 0.6
+SUB_6FE6:
+06FEC  WtSum! = 0
+06FF5  FOR I! = 60 TO 75
+L_6FF8:
+07033  WtSum! = (G!(CINT(I! + 2))) * (SGN(G!(CINT(I!)))) + WtSum!
+0703E  NEXT I! STEP 3
+07063  WtSum! = (Armor! / ArmorDiv!) * 10 + WtSum!
+0706C  FOR I! = 340 TO 369
+L_7070:
+070AB  WtSum! = (G!(CINT(I! + 30))) * (SGN(G!(CINT(I!)))) + WtSum!
+070B6  NEXT I!
+070CC  FOR I! = 690 TO 725
+L_70D0:
+0710B  WtSum! = (G!(CINT(I! + 3))) * (SGN(G!(CINT(I!)))) + WtSum!
+07116  NEXT I! STEP 7
+0712F  IF WtSum! <= 32000 THEN GOTO L_7139
+L_7134:
+07136  WtSum! = 32000
+L_7139:
+0715A  MaxMove2! = DefHardware! * ABS(DefSysCond! = 1)
+07193  MaxMove2! = BaseMove! - (MaxMove2! > 2) - (MaxMove2! > 4)
+0719F  CargoWt10! = INT(WtSum!)
+071B7  TotalWt10! = CargoWt10! + BaseWt! * 10
+071DC  Tmp2! = (2 - ((CargoWt10! / (MaxWt! - BaseWt!)) * 0.1)) * MaxMove2!
+071E4  IF Tmp2! >= 0 THEN GOTO L_71F2
+L_71E9:
+071EC  Tmp2! = 0
+071EF  GOTO L_7205
+L_71F2:
+071FB  IF Tmp2! <= MaxMove2! THEN GOTO L_7205
+L_7200:
+07202  Tmp2! = MaxMove2!
+L_7205:
+0720E  IF Tmp2! <= 6 THEN GOTO L_7218
+L_7213:
+07215  Tmp2! = 6
+L_7218:
+0722A  CurMove! = INT(Tmp2! + 0.5)
+0722D  RETURN   'with FAC = CurMove!
+L_722E:
+0722E  GOSUB SUB_1D8C
+0723A  LOCATE 20, 3
+0723D  PRINT "Standard Delay Factor:"; StdDelay!
+07259  LOCATE 22, 3
+0725C  PRINT "Current Delay Factor:"; Delay!
+07276  LOCATE 24, 3
+07279  PRINT "New Delay Factor (1-9999): ";
+07285  GOSUB SUB_1E13
+0728D  IF NumIn% >= 1 THEN GOTO L_7298
+L_7292:
+07292  NumIn% = 1
+L_7298:
+0729E  IF NumIn% <= 9999 THEN GOTO L_72A9
+L_72A3:
+072A3  NumIn% = 9999
+L_72A9:
+072B3  Delay! = NumIn%
+072B6  GOTO L_3231
+SUB_72B9:
+072B9  RETURN
+SUB_72BA:
+072C6  Tmp2! = Fuel! - FuelUse!
+072CE  IF Tmp2! > 0 THEN GOTO L_72D9
+L_72D3:
+072D6  Tmp2! = 0
+L_72D9:
+072E2  Fuel! = INT(Tmp2!)
+072E5  GOSUB SUB_1720
+072E8  RETURN
+SUB_72E9:
+072EF  Alert! = 2
+072F8  FOR I! = 1 TO 14
+L_72FC:
+07313  SOUND 4444, SndDur! * 0.5
+07324  SOUND 678, SndDur!
+07330  LOCATE 8, 24
+07333  PRINT "   "
+07356  SOUND 3333, SndDur! * 0.3
+07370  SOUND 8888, SndDur! * 1.7
+0737C  LOCATE 8, 24
+0737F  PRINT "RED"
+07394  NEXT I!
+L_73A7:
+073A7  RETURN
+073A8  RETURN
+SUB_73A9:
+073B2  IF EnBoardArg! <> 23 THEN GOTO L_73C0
+L_73B7:
+073BD  G!(109) = 1
+L_73C0:
+073C6  FOR J! = 110 TO 159
+L_73CA:
+073E4  IF G!(CINT(J!)) <> 1 THEN GOTO L_73F9
+L_73E9:
+073EE  G!(CINT(J!)) = 2
+073F6  J! = 222
+L_73F9:
+07402  NEXT J!
+07412  RETURN
+0741B  0 = Pad!
+07421  ' asm add byte ptr [bx + di], al
+07423  ' asm add byte ptr [bx + si], cl
+07425  ' asm add byte ptr [bx + si], al
+07427  ' asm add byte ptr [bx + si], al
+07429  ' asm add byte ptr [bx + si], al
+0742C  ' asm add byte ptr [bx + si], al
+0742E  ' asm add byte ptr [bx + si], al
+07430  ' asm add byte ptr [bx + si], al
+07432  ' asm add byte ptr [bx + si], al
+07434  ' asm sbb ax, word ptr [bp + si]
+07436  ' db db 0xff
+07437  ' asm inc word ptr [bx + si]
+07439  ' asm add byte ptr [bx + si], al
+0743B  ' asm add byte ptr [bx + si], al
+0743D  ' asm add byte ptr [bx + si], al
+0743F  ' asm add byte ptr [bx], dl
+07441  ' asm add byte ptr [bx + di], al
+07443  ' asm add byte ptr [di], cl
+07445  ' asm add byte ptr [bx + si], al
+07447  ' asm add byte ptr [bx + si], al
+07449  ' asm add byte ptr [bx + si], al
+0744C  ' asm add byte ptr [bx + si], al
+0744E  ' asm add byte ptr [bx + si], al
+```
+
+## Subroutines (near CALL targets)
+
+| sub | calls | role |
+|---|---|---|
+| SUB_0301 | 35 | DEF FNCrew(member, field) = INT(G!(member*100 + field + 1300) + .1)  'crew-record field accessor (same as SPACE SUB_03E2); inlined |
+| SUB_0333 | 19 | DEF FNIdx(member, field) = INT(member*100 + field + 1300.5)  'crew-record field index; inlined |
+| SUB_0CB1 | 7 | DEF FNMod8(a) = INT(a - INT(a/8)*8) = heading MOD 8  (inlined) |
+| SUB_0CD1 | 4 | DEF FNDist(a, b) = SQR((EnX!(a)-EnX!(b))^2 + (EnY!(a)-EnY!(b))^2); index 5 = the player ship  (inlined) |
+| SUB_0D2A | 3 | DEF FNAngle(a, b) = bearing in degrees from ship a to ship b (ATN, +180 when b is left of a)  (inlined) |
+| SUB_0DE2 | 3 | DEF FNInView(a) = ship a inside the visual window around the player (|dx|<7/8, |dy|<7)  (inlined) |
+| SUB_0E81 | 2 | DEF FNNorm(a) = angle normalised to -180..180  (inlined) |
+| SUB_0EAC | 3 | DEF FNCanHit(a, b) = gunner a (0..5 = member 3..8) can hit ship b: distance < 10, |ArcAngle!(a) - bearing + heading*45| < 60.5 (0EB2-0EDB), ship active, in view  (inlined) |
+| SUB_0FED | 3 | DEF FNSize(a) = EnTonnage! for an enemy ship (a < 5, the scalar read at 1001: the same for every enemy) or the player BaseWt! (a = 5)  (inlined) |
+| SUB_1033 | 1 | DEF FNScale(a) = sprite scale .3/.6/.8/1 by FNSize  (inlined) |
+| SUB_10B2 | 2 | DEF FNShotX(a, b) = screen x of weapon slot a of ship b (heading-rotated port offset PortX!)  (inlined) |
+| SUB_1150 | 2 | DEF FNShotY(a, b) = screen y of weapon slot a of ship b (PortY!)  (inlined) |
+| SUB_13D5 | 5 | empty delay loop FOR Tmp! = 1 TO Delay!*1.2 |
+| SUB_1424 | 3 | add Delta! to the credits (CreditsHi!*30000 + CreditsLo!), cap 9999999 |
+| SUB_1474 | 1 | empty (RETURN only) |
+| SUB_1475 | 1 | crew-panel AM/RL columns for gun I!: string at DS 0x9ED8 / string at DS 0x70CA / PRINT USING string at DS 0x9EF6 loaded; stock (same as SPACE SUB_16F7) |
+| SUB_15A6 | 3 | crew member picker: clears the text box, prints Prompt$ at 22,3; ENTER = 0, P = 1, C = 2, 1..6 -> 3..8 |
+| SUB_1693 | 21 | pause: 5 x SUB_13D5 |
+| SUB_16B9 | 3 | PRINT string at DS 0x9F24; wait for ENTER |
+| SUB_16E9 | 2 | ARMOR: readout at 6,27 (PRINT USING string at DS 0x9F3C, clipped to 999) |
+| SUB_1720 | 2 | FUEL: readout at 4,26 (PRINT USING string at DS 0x9F44; Fuel!) |
+| SUB_173C | 2 | crew panel names at rows 11..18 col 23 (name or Status$); AllDead! = 1 when every member has status 0 |
+| SUB_1831 | 2 | crew panel AM/RL columns for the 6 guns (SUB_1475 x6) |
+| SUB_1857 | 4 | menu key: Cmd! = ASC(INKEY$) - 64 (lowercase folded), accepted when CmdMin! <= Cmd! <= CmdMax! or ENTER (-51) / SPACE (-32) |
+| SUB_18E2 | 2 | ship panel: ship sprite for ShipHeading! at (264,24), gun digits at the compass positions, shield arcs (same as SPACE SUB_1CE3) |
+| SUB_1A97 | 1 | normalise the arc angles to >= 0 |
+| SUB_1AC7 | 1 | draw the shield arc band (CIRCLE (275..277-n, 35..37-n), 25.5) |
+| SUB_1B68 | 1 | PUT the gun-number digit J! (1..6) at (I!, K!); 7 = erase |
+| SUB_1C3B | 1 | wait for a key: extended -> Cmd! 1..11, letter -> 12..37 (same as SPACE SUB_212C); cursor keys need pilot alive with field 17, fuel, PowerCond!/EngineCond! = 1 else SUB_1D61 |
+| SUB_1D61 | 1 | string at DS 0x9FD0, Cmd! = 40 |
+| SUB_1D8C | 23 | clear the bottom text box: LINE (16,152)-(303,191),0,BF |
+| SUB_1DAE | 2 | clear text rows below 160 |
+| SUB_1DD0 | 3 | clear the left picture area: LINE (16,8)-(143,144),0,BF |
+| SUB_1E13 | 1 | numeric input: MaxLen! = 4 then SUB_1E1C |
+| SUB_1E1C | 1 | line editor at the cursor (echo, BACKSPACE, digits only when MaxLen! = 4, ENTER -> NumIn%) |
+| SUB_1FD6 | 3 | YesNo! = 1 for Y/y, 0 for N/n |
+| SUB_2925 | 2 | classify every enemy ship: EnemyNear! if inside the view window; off-grid -> status 2 (escaped, coordinates 9999); hull < 1 -> status 1; no weapon slot left -> status 3; EnemyLeft! = count with status > 2.5 |
+| SUB_2B67 | 5 | set every active enemy ship (status > 2) to Outcome! (AmmoCount! reused: 2 escaped/truce, 1 surrendered); Tmp! = count |
+| SUB_2F4B | 1 | life support failure: string at DS 0xA3D2 / string at DS 0xA3EA / string at DS 0xA40A -> repair roll (field 26*10+35) -> text with the string at DS 0xA41E (LifeSuptCond! = 1) or string at DS 0xA496 (END after 15 s) |
+| SUB_413A | 3 | swap the owner numbers of two members in one item record |
+| SUB_4186 | 4 | visual window: "VISUAL" header, enemy ships inside |dx|<7/|dy|<7 drawn as ENSHP frames at (EnX!*8-96, EnY!*8-16) (heading 8 = wreck sprite), player ship at (MyX!*8-96, MyY!*8-16) (SUB_434C/SUB_4372) |
+| SUB_434C | 2 | player ship sprite at its grid position (SUB_4372 by heading) |
+| SUB_4372 | 1 | PUT ShipHead0..7 by ShipHeading! at (PutX!, PutY!) |
+| SUB_4469 | 2 | scan map: "LONG RANGE" header, grid lines, enemy ships as 5x5 letters A-E at (EnX!*5-23, EnY!*5+24), player as the 3x3 "+" / "*" marker |
+| SUB_5B84 | 4 | one enemy weapon slot fires at the player: eligible if hull/slot ok and damage >= TimeSlot!; roll vs EnHitPct! (missiles may be intercepted); animation (missile L_6B7A / gun L_6A48); damage minus shield facing -> armor, equipment slot hit (EquipName$ destroyed / Hull breached / member dies), ship destroyed -> string at DS 0xA496 flow |
+| SUB_630B | 2 | shot geometry: X1!/Y1! from the shooter port, X2!/Y2! at the target (or the window edge for a miss) |
+| SUB_6523 | 1 | resolve one player hit on Target!: damage = RND^.5 * gun damage - shield facing; armor down; below 0: hull breach -> random hit type (engines, steering, defence, shields, weapon slot + crew kill) or destruction (explosion animation, kill list, EnStrength! x0.26) |
+| SUB_6D58 | 2 | PUT one of the two 3x3 missile sprites at (PutX!, PutY!) XOR |
+| SUB_6D97 | 3 | explosion noise (14 random SOUNDs) |
+| SUB_6E0A | 7 | short explosion noise (4 SOUNDs) |
+| SUB_6E7C | 4 | medium explosion noise (7 SOUNDs) |
+| SUB_6EEE | 1 | small hit animation: 3 frames (SPBTSH 16x16) with noise |
+| SUB_6F3A | 1 | miss/shield flash: 3 XOR frames with SOUNDs |
+| SUB_6FE6 | 1 | recompute cargo weight, MaxMove2!, CurMove! (same as SPACE SUB_7F9D) |
+| SUB_72B9 | 1 | empty (RETURN only); called before CHAIN |
+| SUB_72BA | 3 | burn FuelUse! units of fuel and refresh the FUEL: readout |
+| SUB_72E9 | 1 | red alert: 14 siren cycles with string at DS 0xAAAA flashing at 8,24 |
+| SUB_73A9 | 1 | mark the active mission flag G!(110..159) = 1 completed (= 2); EnBoardArg! = 23 also sets G!(109) = 1 |
+
+## Variables
+
+Addresses are DS offsets. kinds: N = 4-byte single, S = string descriptor, I = integer, P = array/untyped (PUT/BLOAD target). Names come from `SPBATTLE_names.json` (evidence column = why).
+| address | kinds (uses) | name | evidence |
+|---|---|---|---|
+| 0x1850 | N x1 | EngineCond! | G!(0): condition of ship equipment slot 0 "Engine" (NAME 344; EquipName$(0)): 1 ok, 2 broken -> string at DS 0x9FD0 (SPACE 2224, SPBATTLE 1D5B), else SPACE part of the string at DS 0xADDC (SPACE 2273) - crossref |
+| 0x1854 | N x2 | RetrosCond! | G!(1): condition of slot 1 "Retros": must be 1 to rotate the ship (4794) - crossref |
+| 0x1858 | N x2 | LifeSuptCond! | G!(2): condition of slot 2 "Life Suprt": SUB_2F4B life-support failure when <> 1 (2C3A), set 1 when fixed (3024) - crossref |
+| 0x185C | N x2 | PowerCond! | G!(3): condition of slot 3 "Power" (EquipName$(3)): must be 1 to move/rotate (SPACE 2224/2273, SPBATTLE 1D5B, 4794) - crossref |
+| 0x1860 | N x1 | CommCond! | G!(4): condition of slot 4 part of the string at DS 0xA086 (radio): = 1 required for string at DS 0xA086 (2166) - crossref |
+| 0x186C | N x2 | G!(7) | (shared COMMON/STARTUP data, name from SPACE_names.json) fixed-index element of the COMMON array G! at DS 0x186C (= 0x1850 + 7*4); the compiler addresses constant subscripts directly |
+| 0x1870 | N x2 | G!(8) | (shared COMMON/STARTUP data, name from SPACE_names.json) fixed-index element of the COMMON array G! at DS 0x1870 (= 0x1850 + 8*4); the compiler addresses constant subscripts directly |
+| 0x1874 | N x2 | G!(9) | (shared COMMON/STARTUP data, name from SPACE_names.json) fixed-index element of the COMMON array G! at DS 0x1874 (= 0x1850 + 9*4); the compiler addresses constant subscripts directly |
+| 0x1878 | N x2 | G!(10) | (shared COMMON/STARTUP data, name from SPACE_names.json) fixed-index element of the COMMON array G! at DS 0x1878 (= 0x1850 + 10*4); the compiler addresses constant subscripts directly |
+| 0x1894 | N x5 | DefSysCond! | G!(17): condition/fitted flag of slot 17 "Def. Systm" (defense hardware): set 1 when bought (STARPORT 4ED7); MaxMove! uses G!(63) when 1 (SPACE 8112) - crossref |
+| 0x1898 | N x4 | MisKillerCond! | G!(18): condition/fitted flag of slot 18 "Mis. Killr": 1 when bought (STARPORT 4FDA); missile-killer interception active (SPBATTLE 51C3) - crossref |
+| 0x189C | N x8 | HullCond! | G!(19): condition of slot 19 "Hull Int.": 1 ok, 2 after string at DS 0xA8A6 (SPBATTLE 6094); set 1 with a new ship (STARPORT 2BAF) - crossref |
+| 0x18C4 | N x4 | ShipClass! | (shared COMMON/STARTUP data, name from SPACE_names.json) BLOAD string at DS 0x70AE+STR$(-1-ShipClass!)+string at DS 0x8BEA (028B) -> SHIP-1..4 = ship class pictures |
+| 0x1900 | N x2 | BaseMove! | (shared COMMON/STARTUP data, name from SPACE_names.json) G!(44): MaxMove! = BaseMove! - (MaxMove!>2) - (MaxMove!>4) (814B) |
+| 0x1904 | N x10 | BaseWt! | (shared COMMON/STARTUP data, name from SPACE_names.json) G!(45): SPACE string at DS 0xBB8A PRINT USING Fmt3$; BaseWt! (772B); Total = Cargo + BaseWt!*10 (816F) |
+| 0x1908 | N x2 | MaxWt! | (shared COMMON/STARTUP data, name from SPACE_names.json) G!(46): SPACE string at DS 0xBBB4 (77CF); move penalty uses MaxWt!-BaseWt! (8194) |
+| 0x1910 | N x14 | CargoWt10! | (shared COMMON/STARTUP data, name from SPACE_names.json) G!(48): cargo weight x10 (8157); printed /10 as SPACE string at DS 0xBB98 (7760) |
+| 0x1918 | N x5 | TotalWt10! | (shared COMMON/STARTUP data, name from SPACE_names.json) G!(50): total weight x10 (816F); printed /10 as SPACE string at DS 0xBBA6 (7799) |
+| 0x191C | N x3 | Defence! | (shared COMMON/STARTUP data, name from SPACE_names.json) G!(51): SPACE string at DS 0xBA5C PRINT USING INSIDE string at DS 0x91B4; Defence! (7821) |
+| 0x1920 | N x6 | MaxFuel! | (shared COMMON/STARTUP data, name from SPACE_names.json) G!(52): fuel capacity (3664: Fuel! clipped to MaxFuel!) |
+| 0x1924 | N x2 | ArmorDiv! | (shared COMMON/STARTUP data, name from SPACE_names.json) G!(53): weight adds Armor!/ArmorDiv!*10 (801B) |
+| 0x192C | N x18 | Armor! | (shared COMMON/STARTUP data, name from SPACE_names.json) G!(55): SPACE string at DS 0xBB2A; Armor! (77F3); ARMOR: readout clipped to 999 (SUB_1A28) |
+| 0x1940 | N x3 | MissileKiller! | (shared COMMON/STARTUP data, name from SPACE_names.json) G!(60): fitted flag, SGN() multiplies the percentage (7983) |
+| 0x1944 | N x3 | MissileKillPct! | (shared COMMON/STARTUP data, name from SPACE_names.json) G!(61): text with the STARPORT string at DS 0xB5E0 (7983) |
+| 0x194C | N x2 | DefHardware! | (shared COMMON/STARTUP data, name from SPACE_names.json) G!(63): fitted flag (79D9); also the drive rating used for MaxMove! (8112) |
+| 0x1950 | N x3 | DefHardwarePct! | (shared COMMON/STARTUP data, name from SPACE_names.json) G!(64): text with the SPACE string at DS 0xBC3E (79D9) |
+| 0x195C | N x3 | G!(67) | G!(67): shield 1 strength (136A, 5E06 via 67+3f); test setup 0665 |
+| 0x1968 | N x5 | G!(70) | G!(70): shield 2 strength |
+| 0x1974 | N x5 | G!(73) | G!(73): shield 3 strength |
+| 0x1980 | N x11 | G!(76) | G!(76): shield 4 strength |
+| 0x1988 | N x18 | CreditsHi! | (shared COMMON/STARTUP data, name from SPACE_names.json) G!(78) (shipped 3): credits = CreditsHi!*30000 + CreditsLo! (SUB_16A6, FNKey at 5982) |
+| 0x198C | N x8 | CreditsLo! | (shared COMMON/STARTUP data, name from SPACE_names.json) G!(79) (shipped 5000): low part of the credits (SUB_16A6) |
+| 0x1998 | N x12 | CurMove! | (shared COMMON/STARTUP data, name from SPACE_names.json) G!(82): SPACE string at DS 0xBBF4; CurMove! (7861) = INT(Count!+.5) in SUB_7F9D |
+| 0x19A4 | N x2 | DriveCfg! | (shared COMMON/STARTUP data, name from SPACE_names.json) G!(85): 1 -> Drive$=string at DS 0x6F4E, 2 -> string at DS 0x6F58 (0064-0086) |
+| 0x19A8 | N x1 | StdDelay! | (shared COMMON/STARTUP data, name from SPACE_names.json) G!(86) (shipped 188): string at DS 0xAA46; StdDelay! (8327); STARTUP: Speed |
+| 0x19B0 | N x7 | Delay! | (shared COMMON/STARTUP data, name from SPACE_names.json) G!(88) (shipped 188): string at DS 0xAA60; Delay! (8346); DelayCount! = Delay!*1.2 |
+| 0x19C4 | N x2 | SoundOff! | (shared COMMON/STARTUP data, name from SPACE_names.json) G!(93) (STARTUP: SoundOff): SndDur! = 1 - SoundOff! (018C); SUB_8F2E silent when SndDur! = 0 |
+| 0x1A04 | N x1 | G!(109) | G!(109): set to 1 when EnBoardArg! = 23 (73BD) - special mission flag |
+| 0x1D28 | N x7 | KillStartAll! | (shared COMMON/STARTUP data, name from SPACE_names.json) G!(310): first kill-list index for SPACE string at DS 0xB3C2 (52EA) |
+| 0x1D2C | N x6 | KillPtr! | (shared COMMON/STARTUP data, name from SPACE_names.json) G!(311): kill-list write index (535C) |
+| 0x1D30 | N x7 | KillStartMission! | (shared COMMON/STARTUP data, name from SPACE_names.json) G!(312): first index for SPACE string at DS 0xB3D8 (5347) |
+| 0x1D34 | N x8 | Kills! | (shared COMMON/STARTUP data, name from SPACE_names.json) G!(313): SPACE string at DS 0xB42A; Kills! (52FF) |
+| 0x1D38 | N x7 | KillStartPort! | (shared COMMON/STARTUP data, name from SPACE_names.json) G!(314): first index for SPACE string at DS 0xB3F0 (5353) |
+| 0x1D3C | N x6 | Tonnage! | (shared COMMON/STARTUP data, name from SPACE_names.json) G!(315): SPACE string at DS 0xB434; Tonnage! (531E) |
+| 0x3AB0 | N x40 | Fuel! | (shared COMMON/STARTUP data, name from SPACE_names.json) G!(2200) COMMON: SPACE string at DS 0xABFE readout PRINT USING string at DS 0x9F44 (SUB_1A5F); fuel bar = Fuel!/MaxFuel! (3645); burned by SUB_87AD |
+| 0x3AE8 | N x8 | ChainArg! | (shared COMMON/STARTUP data, name from SPACE_names.json) G!(2214) COMMON argument for the CHAINed module: starport number (3608), enemy type (6DCF, 9034) |
+| 0x3B18 | N x20 | ShipHeading! | (shared COMMON/STARTUP data, name from SPACE_names.json) G!(2226) COMMON: Heading! = ShipHeading! in SUB_1CE3 (1CFB) |
+| 0x3B20 | N x1 | Terrain! | G!(2228) COMMON: PLBATTLE terrain index = DATA record 297 of PLBATTLE (1..3 Plains/Mushrooms/Swamp from SPACE INT(RND*3+1) 6DF3, 10 Enemy Ship from SPBATTLE 3EEF, 11 Enclosed Room from INSIDE 6646) - crossref |
+| 0x3B24 | N x1 | Surprise! | G!(2229) COMMON: surprise code before CHAIN PLBATTLE: 0 confrontation / 1 you surprise / 2 enemies surprise (SPACE 6DD8, INSIDE 6575, SPBATTLE 3EFA) - crossref |
+| 0x3B40 | N x3 | MissionCodeB! | (shared COMMON/STARTUP data, name from SPACE_names.json) G!(2236) COMMON: code of mission target 2 (2B58); cleared when delivered (6417) |
+| 0x3B44 | N x2 | MissionType! | (shared COMMON/STARTUP data, name from SPACE_names.json) G!(2237) COMMON: 1 pickup, 3 delivery, 5/6 planet visit (63DA, 6423, 6566, 5C64, 5C96): completes the mission via SUB_8CC2 |
+| 0x3B50 | N x3 | MissionCodeA! | (shared COMMON/STARTUP data, name from SPACE_names.json) G!(2240) COMMON: code of mission target 1 (2B1F); cleared when done (63CE) |
+| 0x3B78 | N x1 | Gravity10! | (shared COMMON/STARTUP data, name from SPACE_names.json) G!(2250) COMMON = planet gravity*10 (5BF1) or 1 at a station (3879) for the chained module |
+| 0x3B7C | N x1 | BoardCrew! | G!(2251) COMMON: = Hull!(i) of the boarded ship (3F0E), its hull/crew points; PLBATTLE reads it as the boarding crew count (12B3-12D3) - crossref name |
+| 0x3B80 | N x1 | Breathable! | (shared COMMON/STARTUP data, name from SPACE_names.json) G!(2252) COMMON = 1 breathable atmosphere (5936/594E -> 6DFC) |
+| 0x3BAC | N x1 | LastEnemyType! | G!(2263) COMMON: = ChainArg! (2F16) last enemy type fought - crossref name |
+| 0x3BB0 | N x9 | TributeCount! | G!(2264) COMMON: tribute counter, payment /5 after the 5th (2885-28D1); reset by STARPORT with a new mission (7797) - crossref name |
+| 0x3BB8 | N x1 | G!(2266) | (shared COMMON/STARTUP data, name from SPACE_names.json) fixed-index element of the COMMON array G! at DS 0x3BB8 (= 0x1850 + 2266*4); the compiler addresses constant subscripts directly |
+| 0x4290 | S x1 | CrewName$(2) | element 2 of CrewName$ (0x4288 + 2*4): PRINT CrewName$(2); string at DS 0xA0A4 (218E) - the communications officer |
+| 0x488C | S x2 | ShipName$ | first CHARNAME field (STARTUP: CharName$): string at DS 0xA260; ShipName$ (25F0) |
+| 0x6F42 | S x9 | Drive$ | assigned ""/string at DS 0x6F4E/string at DS 0x6F58 at 0046-0074 from DriveCfg! (G!(85)); prefixed to SPBTSH/ENCLIST/ENCTABLE/ENSHP file names and the CHAIN targets |
+| 0x6F5E | N x41 | SndDur! | = 1 - SoundOff! (0083); every SOUND duration; SUB_6D97/6E0A/6E7C silent when 0 |
+| 0x6F86 | N x58 | J! | inner loop counter (008C, 30B3, 49FA, 73C6); digit index for SUB_1B68 (195B/199A) |
+| 0x6F8E | N x3 | DebugLoad! | never assigned in SPBATTLE (only tested at 00CD, 01B5, 0374): 0 skips the standalone BLOAD of spacesh/CHARINFO/SHIP/LOGO, the NAME/CHARNAME reads and the part of the string at DS 0x71A0 test-ship setup (0379-06B7) - dead debug code; SPACE has the same flag at A80C |
+| 0x70B6 | S x1 | Status$(0) | element 0 of the string array at 0x70B6 (literal store at initialisation) |
+| 0x70BA | S x1 | Status$(1) | element 1 of the string array at 0x70B6 (literal store at initialisation) |
+| 0x70BE | S x1 | Status$(2) | element 2 of the string array at 0x70B6 (literal store at initialisation) |
+| 0x70DA | S x1 | SlotTag$(0) | element 0 of SlotTag$ (0x70DA) = string at DS 0x711A (0191) |
+| 0x70DE | S x1 | SlotTag$(1) | element 1 = "P" (0136) |
+| 0x70E2 | S x1 | SlotTag$(2) | element 2 = "C" (013F) |
+| 0x710E | N x302 | I! | main FOR counter (0148, 03BA, 0701 ...) |
+| 0x7120 | S x1 | ClassName$(0) | element 0 of the string array at 0x7120 (literal store at initialisation) |
+| 0x7124 | S x1 | ClassName$(1) | element 1 of the string array at 0x7120 (literal store at initialisation) |
+| 0x7128 | S x1 | ClassName$(2) | element 2 of the string array at 0x7120 (literal store at initialisation) |
+| 0x715C | S x32 | K$ | INKEY$ / typed text (15C7, 1857, 1C41, 1E3C); INPUT #1 sink for the 52 leading NAME fields (01E5) |
+| 0x7174 | N x37 | FnField! | argument slot 2 of FNCrew |
+| 0x7178 | N x41 | FnMember! | argument slot 1 of FNCrew (SUB_0301) |
+| 0x7188 | N x21 | Fn2Field! | argument slot 2 of FNIdx |
+| 0x718C | N x25 | Fn2Member! | argument slot 1 of FNIdx (SUB_0333) |
+| 0x71B4 | N x7 | YesNo! | SUB_1FD6: 1 for Y/y, 0 for N/n |
+| 0x71C0 | N x51 | Ix! | scratch index: gun record base I!*7+683 (149F), kill-list slot (2D80), heading index (1916), item slot found (1FA8) |
+| 0x887C | N x1 | TblWeapon!(0) | ENCTABLE column 8 read by INPUT #1 at 079F into element 0 of TblWeapon! (0x887C) |
+| 0x8880 | N x1 | TblWeapon!(1) | ENCTABLE column 9 read by INPUT #1 at 079F into element 1 of TblWeapon! (0x887C) |
+| 0x8884 | N x1 | TblWeapon!(2) | ENCTABLE column 10 read by INPUT #1 at 079F into element 2 of TblWeapon! (0x887C) |
+| 0x8888 | N x1 | TblWeapon!(3) | ENCTABLE column 11 read by INPUT #1 at 079F into element 3 of TblWeapon! (0x887C) |
+| 0x888C | N x1 | TblWeapon!(4) | ENCTABLE column 12 read by INPUT #1 at 079F into element 4 of TblWeapon! (0x887C) |
+| 0x8890 | N x1 | TblWeapon!(5) | ENCTABLE column 13 read by INPUT #1 at 079F into element 5 of TblWeapon! (0x887C) |
+| 0x89D4 | N x24 | EnX!(5) | formerly named `MyX!` - the address is EnX!(5) (a constant index folded into a direct operand by the compiler); player ship x on the grid (20 initial, 0C6E); screen x = MyX!*8-96 (435C) |
+| 0x89EC | N x22 | EnY!(5) | formerly named `MyY!` - the address is EnY!(5) (a constant index folded into a direct operand by the compiler); player ship y (10 initial, 0C77); screen y = MyY!*8-16 (436F) |
+| 0x8A04 | N x1 | EnHeading!(5) | element 5 of EnHeading! (0x89F0 + 5*4): the player ship occupies position slot 5 (like MyX! = EnX!(5), MyY! = EnY!(5)); := ShipHeading! at 51F1 (a direct store, constant index folded by the compiler - was named MyHeading2!) so that the gun-port position functions 10B2/1150 (EnHeading!(slot)) work for the player slot - alias sweep after the PLBATTLE Map%(76) finding |
+| 0x8B24 | N x2 | EncRec! | = ChainArg! (06F8): number of ENCLIST records to read (the last one read is the encounter) |
+| 0x8B28 | S x6 | EnemyName$ | ENCLIST field 1 (0707): printed "n EnemyName$(s)" (0758), battle report, part of the string at DS 0xA8FC, part of the string at DS 0xA878 |
+| 0x8B2C | N x40 | NumEnemy! | ENCLIST field 2: number of enemy ships (loops 0..NumEnemy!-1 everywhere; string at DS 0xA7AE CHR$(NumEnemy!+64) string at DS 0xA79E 4E5F) |
+| 0x8B30 | N x83 | EncMod! | ENCLIST field 3 / 100 (088C): strength modifier applied to every ENCTABLE value (08F4-0AB1) |
+| 0x8B34 | N x2 | EncRow! | ENCLIST field 4: number of ENCTABLE rows to read (0790); the last row read defines the ship type |
+| 0x8B4C | N x2 | EncRowN! | loop limit copy of EncRow! (0790) |
+| 0x8B50 | N x3 | TblHull! | ENCTABLE col 1: hull/crew strength -> Hull!(i) = INT((EncMod!*.2+1)*TblHull!+.5) (099E) |
+| 0x8B54 | N x5 | TblGun! | ENCTABLE col 2: gun damage base -> GunMin!/GunMax! (08F4/090F) |
+| 0x8B58 | N x2 | TblDef! | ENCTABLE col 3: defence value -> Defence!(i) = TblDef! (0B36) |
+| 0x8B5C | N x3 | TblFuel! | ENCTABLE col 4: fuel -> EnFuel!(i) = (RND*.4+.6)*(EncMod!*.5+1)*TblFuel! (0A0D) |
+| 0x8B60 | N x3 | TblArmor! | ENCTABLE col 5: armor -> EnArmor!(i) = INT((EncMod!*.5+1)*TblArmor!+.5) (09E5) |
+| 0x8B64 | N x9 | TblMissileDmg! | ENCTABLE col 6: missile damage = EncMod!*.5 + col6 + 1 (0A55); used when the enemy fires a missile (5D40) |
+| 0x8B68 | N x3 | TblShield! | ENCTABLE col 7: shield per facing -> Shield!(f,i) = (EncMod!*.2+1)*TblShield! (0B7D) |
+| 0x8B6C | N x5 | EnMoves! | ENCTABLE col 14: enemy movement allowance (3441: moves when INT(phase*EnMoves!/6+.5) changes) |
+| 0x8B70 | N x2 | EnTech! | ENCTABLE col 15: part of the string at DS 0xA0FC works only when EnTech! < 4 (2396) |
+| 0x8B74 | N x13 | EnAttitude! | ENCTABLE col 16: 1 = always answers hails (2166), > 1 may turn hostile after a refusal (2BFD) or during combat (5B74); 3 after a hostile act (2477); first index of ApproachTbl! (24F8) |
+| 0x8B78 | N x3 | EnTactic! | ENCTABLE col 17: preferred range 2 -> 9, 3 -> 6+4 (39EE/3A0D) in the enemy move evaluation |
+| 0x8B7C | N x2 | EnSprite! | ENCTABLE col 18: BLOAD string at DS 0x8BE0+STR$(-EnSprite!)+string at DS 0x8BEA, &H6AA2 (0CAB) |
+| 0x8B80 | N x3 | EnBoardArg! | ENCTABLE col 19: ChainArg! for PLBATTLE when boarding (2F3C); 23 sets G!(109) = 1 (73B2) |
+| 0x8B84 | N x16 | EnTonnage! | ENCTABLE col 20 scaled by EncMod! (0945): SPACE string at DS 0xB434 credit in the kill list (2E2D/2E53), tribute (28A7), big explosion when >= 130 (68B6) |
+| 0x8B88 | N x2 | EnShipType! | ENCTABLE col 21: ship type stored in the kill list G!(210+k) (2E12) |
+| 0x8B8C | N x23 | EnStrength! | ENCTABLE col 22 x NumEnemy! (089A): negotiation strength ratio vs MyStrength! (23A7); x0.68 per crew hit, x0.26 per ship destroyed (67CC, 6A44) |
+| 0x8B90 | N x3 | EnHitBonus! | ENCTABLE col 23: added to the enemy hit chance EnHitPct! (524C) |
+| 0x8B94 | N x11 | TblGunDmg! | ENCTABLE col 24 x (EncMod!*.6+1) (0A6B): enemy gun damage (5D40) |
+| 0x8B98 | N x3 | TblMissiles! | ENCTABLE col 25: missiles per ship -> Missiles!(i) (0AB1) |
+| 0x8B9C | N x11 | GunMin! | (EncMod!*.2+.7)*TblGun! (08F4) |
+| 0x8BA0 | N x8 | GunMax! | (EncMod!*.1+1.3)*TblGun! (090F) |
+| 0x8BA4 | N x8 | GunRange! | = GunMax! - GunMin! (091C) |
+| 0x8BB8 | N x5 | ShipsN0! | loop limit NumEnemy!-1 (0954) |
+| 0x8BDC | N x88 | K! | inner loop counter (0B3F, 11E8, 3185); REUSED as y for SUB_1B68 (19CB) and enemy ship index (345B) |
+| 0x8BF2 | N x21 | Arg0CB1! | argument of FNMod8 (SUB_0CB1) |
+| 0x8BFA | N x5 | ArgA0CD1! | argument 1 of FNDist (SUB_0CD1) |
+| 0x8BFE | N x5 | ArgB0CD1! | argument 2 of FNDist |
+| 0x8C02 | N x4 | ArgA0D2A! | argument 1 of FNAngle (SUB_0D2A) |
+| 0x8C06 | N x4 | ArgB0D2A! | argument 2 of FNAngle |
+| 0x8C1A | N x1 | MoveDX!(1) | element 1 of MoveDX! (0x8C16+4): = 1 (0DCE): move 1 = east |
+| 0x8C22 | N x1 | MoveDX!(3) | element 3: = -1 (0DDC): move 3 = west |
+| 0x8C2A | N x1 | MoveDY!(0) | element 0 of MoveDY! (0x8C2A): = -1 (0DC3): move 0 = north |
+| 0x8C32 | N x1 | MoveDY!(2) | element 2: = 1 (0DD4): move 2 = south |
+| 0x8C3E | N x4 | Arg0DE2! | argument of FNInView (SUB_0DE2) |
+| 0x8C5A | N x14 | Arg0E81! | argument of FNNorm (SUB_0E81) |
+| 0x8C66 | N x10 | ArgA0EAC! | argument 1 of FNCanHit (SUB_0EAC): gunner index member-3 |
+| 0x8C6A | N x9 | ArgB0EAC! | argument 2 of FNCanHit: enemy ship index |
+| 0x8CD6 | N x7 | Arg0FED! | argument of FNSize (SUB_0FED) |
+| 0x8CDA | N x4 | Arg1033! | argument of FNScale (SUB_1033) |
+| 0x8CEA | N x12 | ArgA10B2! | argument 1 of FNShotX (SUB_10B2): slot |
+| 0x8CEE | N x4 | ArgB10B2! | argument 2 of FNShotX: ship (5 = player) |
+| 0x8CFA | N x12 | ArgA1150! | argument 1 of FNShotY (SUB_1150) |
+| 0x8CFE | N x3 | ArgB1150! | argument 2 of FNShotY |
+| 0x9D46 | N x10 | DelayN! | pause length in SUB_13D5 units: 6 (11D0); loops of SUB_1693 / 5A25 / 62AE |
+| 0x9D4A | N x1 | DelayM! | = 6 (11D6) - not read elsewhere |
+| 0x9E8E | N x14 | MyStrength! | player strength estimate from ship class, cargo, shields / hull state (136A); x0.68 per crew death (6247); compared with EnStrength! (23A7) |
+| 0x9E9A | N x5 | CommState! | 2 = not tried (1373) -> part of the string at DS 0xA062, 1 = established -> communications phase, 0 = failed/refused (ON CommState!+1 GOTO 20A5) |
+| 0x9E9E | N x5 | Hostile! | 1 once the enemy turned hostile (2C07, 5B7E): enemy ships fire (5A66) and attitude 3 (246D) |
+| 0x9EA2 | N x3 | Boarding! | 1 after part of the string at DS 0xA5FE = Y (3F1D): CHAIN PLBATTLE instead of SPACE (2F22) |
+| 0x9EA6 | N x55 | Member! | crew member picked by SUB_15A6 or loop counter 1..8 (138B, 532E) |
+| 0x9EB2 | N x5 | DelayCount! | = Delay!*1.2 (13E1) |
+| 0x9EBA | N x19 | Tmp! | scratch: delay loop counter (13EA), armor readout (16EF), gun AM value (158D), ships affected count (2B6D) |
+| 0x9ED0 | N x30 | Delta! | credits delta for SUB_1424 (27F9, 284D, 28A7) |
+| 0x9EE2 | N x6 | GunType! | gun type in SUB_1475 (14B4) |
+| 0x9EEE | N x15 | AmmoCount! | stock count (1521); REUSED as Outcome! value passed to SUB_2B67: 2 = escaped/truce, 1 = surrendered (25CF, 27E7, 2874, 2907, 49DD) |
+| 0x9EF2 | N x83 | Tmp2! | scratch: ammo loop (152A), compass index (1906), RND*400 roll (252D), member swap (3F5F), arc count (3642), move result (71DC) |
+| 0x9F00 | S x4 | Prompt$ | prompt of SUB_15A6: string at DS 0xA40A, string at DS 0xA61E, string at DS 0xA63C |
+| 0x9F4C | N x13 | AllDead! | 1 while every member has status 0 (1811: product of (status = 0)); REUSED as ShipKilled! flag (57B6, 5FA5, 6A0A, 6233) |
+| 0x9F50 | N x10 | M! | crew loop counter of SUB_173C |
+| 0x9F54 | N x56 | Cmd! | key code: SUB_1857 ASC-64 (A = 1.., ENTER -51, SPACE -32); SUB_1C3B extended keys 1..11 / letters 12..37 / 40 = not ready |
+| 0x9F60 | N x4 | CmdMin! | lower bound accepted by SUB_1857 |
+| 0x9F64 | N x4 | CmdMax! | upper bound accepted by SUB_1857 |
+| 0x9F70 | N x49 | PutX! | x for the ship-panel digits / battle sprites (18E8, 4224, 435C) |
+| 0x9F74 | N x49 | PutY! | y for the same PUTs |
+| 0x9F78 | N x5 | Heading! | = ShipHeading! in SUB_18E2 (18FA) |
+| 0x9F84 | N x21 | ShieldStr! | shield strength G!(ShieldNo!+6) for the arc (1A37); REUSED as the beam step 0..1 in L_6B7A (6BE8) |
+| 0x9F88 | N x15 | ArcStart! | arc start angle (1A60) |
+| 0x9F8C | N x19 | ArcEnd! | arc end angle (1A6E); REUSED as fuel-bar target x (26C1) |
+| 0x9F90 | N x4 | ArcOn! | 0 base arc / 1 shield arc (1A0F/1A77) |
+| 0x9F98 | N x37 | ShieldNo! | 1..4 (1A1B); REUSED as Target! = targeted enemy ship (4B53, 4C18, 4FAB, 5577) |
+| 0x9FAC | N x5 | ArcX1! | = 277 - ShieldStr! (1AD3) |
+| 0x9FB8 | N x5 | ArcY1! | = 37 - ShieldStr! (1AEC) |
+| 0x9FEC | N x4 | MaxLen! | max input length for SUB_1E1C (4 digits via SUB_1E13, 3 at 2042) |
+| 0x9FF0 | N x5 | CurX! | POS(0) saved by the line editor |
+| 0x9FF4 | N x5 | CurY! | CSRLIN saved by the line editor |
+| 0x9FFE | S x4 | Ch$ | key read inside SUB_1E1C |
+| 0xA00E | I x6 | NumIn% | = VAL(K$) (1F6D); delay factor clamp 1..9999 (728D-72B3) |
+| 0xA010 | N x35 | Flag! | general found/any flag: item search (1F77 dead code), weapon slots alive (2AAD), kill counted (2D1B), ships in range (4AE5), reload done (546B), missile vs gun kind (5914, 5CB1), interception (5CE7) |
+| 0xA01C | N x1 | ItemType! | search key of the dead item-search block 1F77-1FD5 |
+| 0xA05E | N x12 | EnemyLeft! | number of enemy ships still active (status > 2.5) from SUB_2925 (2B47); 0 -> string at DS 0xA32C (2094); REUSED as ArmorHit! flag in the fire report (57A4, 65E4) |
+| 0xA13C | N x9 | Approach! | 0 Plead, 1 Ask, 2 Demand, 3 Bargain/Bribe, 4 Impersonate Diety, 5 None (2292) |
+| 0xA140 | N x8 | Objective! | 0 Fuel, 1 Truce, 2 Tribute, 3 Surrender (2363); 1 forced for Bargain (22B6) |
+| 0xA196 | N x17 | Offer! | negotiation score: 50, or (EnTech!<4)*-40 for the deity bluff, then x table factors (236C-24F8); -99 when no enemy is near (2509) |
+| 0xA19A | N x30 | RelStrength! | (MyStrength! - EnStrength!) ratio folded into a class 0..8 (23A7-244B): second index of StrengthTbl! |
+| 0xA1B2 | N x4 | EnemyNear! | 1 when an enemy ship is inside the visual window (29D8, SUB_2925); gates targeting (49EF) and offers (2501) |
+| 0xA270 | N x8 | BarX0! | fuel bar x before the fuel transfer (261A) |
+| 0xA274 | N x5 | ShipsN! | loop limit NumEnemy!-1 (2629) |
+| 0xA288 | N x5 | BarX1! | fuel bar target x rounded (273F) |
+| 0xA2A6 | N x6 | TrucePrice! | = INT(TotalWt10!) credits demanded for a truce (2808) |
+| 0xA318 | N x5 | ShipsN2! | loop limit (2940) |
+| 0xA328 | N x5 | ShipsN3! | loop limit (2B7C) |
+| 0xA34E | N x5 | ShipsN4! | loop limit (2C75) |
+| 0xA4AA | N x6 | T0! | TIMER at string at DS 0xA496 (3084): 15 s wait then END |
+| 0xA4B2 | N x9 | Moved! | 1 when any ship moved this phase (3C68, 4726) |
+| 0xA4B6 | N x8 | Turned! | 1 when a ship turned (38D3, 47C0) |
+| 0xA4BE | N x5 | ShipsN5! | loop limit (3158) |
+| 0xA4C2 | N x10 | Slot! | weapon slot loop 0..5 (3185, 5296) |
+| 0xA4C6 | N x2 | Jumped! | 1 when hyperspace was attempted (493C) |
+| 0xA4CA | N x33 | Phase! | movement phase 1..7 (320B): string at DS 0xA4CE; Phase! - the player acts when INT(CurMove!*Phase!/6+.5) changes (329C); 7 = enemy-only end phase |
+| 0xA534 | N x1 | Pad! | garbage render of the padding bytes after the last RETURN (741B) - not code |
+| 0xA55A | N x39 | DX! | player move x (-1/0/+1 from the arrow keys 46E9/4701) / beam dx (6B89) |
+| 0xA55E | N x45 | DY! | player move y (46DD/46F5) / beam dy (6B9A) |
+| 0xA566 | N x5 | ShipsN6! | loop limit (3452) |
+| 0xA56A | N x6 | AngleToMe! | FN_0D2A angle from the enemy ship to the player (3476) |
+| 0xA56E | N x9 | BestScore! | best move/turn score (347F, 3992) |
+| 0xA576 | N x3 | StepDir! | -1 (34D1): heading loop direction |
+| 0xA57A | N x27 | HeadTry! | candidate heading in the turn evaluation (34F0-3862) |
+| 0xA57E | N x17 | RelAngle! | angle minus heading*45 normalised 0..360 (34F0-3505) |
+| 0xA58A | N x6 | TurnCW! | steps clockwise to the best heading (3741/37BB) |
+| 0xA58E | N x6 | TurnCCW! | steps counter-clockwise (3747/3857) |
+| 0xA592 | N x5 | HeadEnd1! | loop limit heading+3 (3765) |
+| 0xA596 | N x5 | HeadEnd2! | loop limit heading-3 (37FA) |
+| 0xA59A | N x3 | StepDir2! | -1 (3803) |
+| 0xA5A2 | N x4 | BestMove! | index 0..4 of the chosen move, 4 = stay (399B, 3C33) |
+| 0xA5AA | N x6 | WantRange! | preferred distance to the player (39EE) |
+| 0xA5AE | N x6 | WantSpacing! | preferred distance to other enemy ships (3A0D) |
+| 0xA5B2 | N x5 | OldX! | enemy x before the move (3A1A) |
+| 0xA5B6 | N x5 | OldY! | enemy y before the move (3A26) |
+| 0xA5BA | N x10 | MoveTry! | candidate move 0..4 (3A2F) |
+| 0xA5BE | N x7 | DistX! | |x - MyX!| (3AD4) |
+| 0xA5C2 | N x7 | DistY! | |y - MyY!| (3AEB) |
+| 0xA5CE | N x5 | ShipsN7! | loop limit (3B6D) |
+| 0xA5D2 | N x6 | Other! | other enemy ship index (3B76) |
+| 0xA5D6 | N x13 | Dist2! | distance to the other ship (3BA0) |
+| 0xA5DE | N x5 | ViewMode! | 0 = visual window (SUB_4186), 1 = scan map (SUB_4469) (418C/446F) |
+| 0xA5E2 | N x5 | ShipsN8! | loop limit (3DF5) |
+| 0xA650 | N x6 | RecDelta! | record distance for the position swap (400A) |
+| 0xA654 | N x5 | RecEnd! | last index of the record to swap (4027) |
+| 0xA65C | N x6 | SwapSum! | = a + b for SUB_413A (40C1) |
+| 0xA67C | N x3 | StepDir3! | -1 (41B0) |
+| 0xA684 | N x3 | StepDir4! | -1 (44FE) |
+| 0xA68C | N x4 | TurnDir! | +1 rotate CW (4730), -1 CCW (473C) |
+| 0xA6A0 | N x5 | ShipsN9! | loop limit (47EE) |
+| 0xA71C | N x5 | JumpFuel! | 40 units needed for hyperspace (4966) |
+| 0xA720 | N x11 | FuelUse! | fuel burned by SUB_72BA: jump (496E), 1 per missile (588B) |
+| 0xA754 | N x47 | Command! | command 0..7 of the member being ordered (CmdName$ index): 4ADF-5145 |
+| 0xA758 | N x3 | StepDir5! | -1 (4AEE) |
+| 0xA7DE | N x7 | NewTarget! | ship letter chosen - 1 (4F20) |
+| 0xA7E2 | N x5 | PlayerFired! | 1 when the player scored a hit this round (58FA) -> enemy turns hostile (5B74) |
+| 0xA7E6 | N x6 | MissileKillPct2! | missile-killer % if fitted (51C3) |
+| 0xA7EA | N x6 | DefHwPct2! | defence-hardware % if fitted (51E8) |
+| 0xA7EE | N x9 | EnHitPct! | enemy hit chance 10..90 (524C-5275) |
+| 0xA7F2 | N x5 | ShipsN10! | loop limit (5284) |
+| 0xA7F6 | N x6 | TimeStep! | = -GunRange!/4: FOR TimeSlot! = GunMax! TO 0 STEP TimeStep! (5302/5B10) |
+| 0xA7FA | N x8 | TimeSlot! | initiative threshold of the firing round (5312-5383: member fires when field 1 >= TimeSlot!) |
+| 0xA7FE | N x21 | GunRec! | gun record base Member!*7+669 (53F7) |
+| 0xA802 | N x8 | GunNo! | gun type (5481) / GunName$ index = type-1 (5599) |
+| 0xA816 | N x15 | HitPct! | player hit chance: gunnery*5 + hit bonus + gun accuracy + 100/(dist+1) + aim bonuses (+50/+30/+20 for aim level 1/2/3: the `-((aim > n) * k)` terms ADD because QB true = -1) + enemy defence (EnDefence! is negative for hard targets), clamped 10..90 (56FF-5745) - manual-xcheck fix (was "- aim penalties") |
+| 0xA824 | N x9 | Hits! | hits this salvo (58F2) |
+| 0xA828 | N x3 | HullBreach! | flag (6626) |
+| 0xA82C | N x6 | CrewKilled! | flag (67B1) |
+| 0xA830 | N x9 | DamageDone! | points of damage (65F4) |
+| 0xA834 | N x33 | IsBeam! | 1 for an energy weapon, 0 for a missile. Player side (57DA): `-(GunNo! > 13)` where GunNo! = gun type - 1 (5599), so 1 for gun types 15..25 (Gauss/laser/ion/plasma cannons: 1 fuel per shot 588B, beam LINE 6A48, no reload 4D75) and 0 for the missile types 1..14 (ammo from G!(rec+5), dotted trail 6B7A). Enemy side (5C50): 1 when the ENCTABLE weapon damage > 0, 0 for a negative value = missile, which the missile killer may intercept (5CDD `IsBeam! = 0`); enemy fuel -= IsBeam! (5E27) - was IsMissile! (polarity inverted), manual-xcheck fix |
+| 0xA83C | N x5 | Shots! | shots per salvo G!(GunRec!+6), x1 for rapid fire (5816) |
+| 0xA840 | N x13 | HitFlag! | 1 = this shot hits (58D8, 5E78) |
+| 0xA844 | N x6 | Misses! | misses this salvo (590B) |
+| 0xA848 | N x4 | Shot! | shot loop counter (581F) |
+| 0xA8E4 | N x2 | DelayN2! | copy of DelayN! (5A1C) |
+| 0xA8E8 | N x4 | Shooter! | enemy ship index firing / 5 = player (5A71, 659C) |
+| 0xA8EC | N x5 | ShipsN11! | loop limit (5A80) |
+| 0xA8F0 | N x16 | EnShip! | enemy ship index in the enemy fire loop (5A89) |
+| 0xA8F4 | N x17 | EnSlot! | enemy weapon slot used (5AB3, 5ADA, 6593) |
+| 0xA90A | N x29 | Damage! | damage of the enemy shot after shields (5D40-5E06) |
+| 0xA90E | N x10 | HitFacing! | player facing hit 0..3 (5DB0): shield G!(7+f) and strength G!(67+3f) |
+| 0xA954 | N x5 | DmgExp! | 0.7 / 0.5 exponent of the equipment-hit roll (5F7B, 5FC5) |
+| 0xA958 | N x18 | HitSlot! | equipment slot hit 0..24 (6002): text with the string at DS 0xA984, 9..16 = crew slot -> member dies, 18 = missile killer |
+| 0xA9AA | N x5 | DelayN3! | DelayN!*0.2 (62AE) |
+| 0xA9AE | N x5 | DelayN4! | DelayN!*0.3 (62E2) |
+| 0xA9B2 | N x18 | X1! | shot origin x (6327) |
+| 0xA9B6 | N x18 | Y1! | shot origin y (6344) |
+| 0xA9BA | N x65 | X2! | shot end / explosion x (6375) |
+| 0xA9BE | N x63 | Y2! | shot end / explosion y (63A4) |
+| 0xA9C6 | N x6 | EdgeX! | window edge x 142/17 for a miss (6472/647E) |
+| 0xA9CE | N x6 | EdgeY! | window edge y 139/12 (6492/649E) |
+| 0xA9D6 | N x10 | Scale! | edge scale factor (64B3) |
+| 0xA9DA | N x6 | Scale2! | (64CA) |
+| 0xA9FE | N x5 | BeamStep! | = 2/(|dx|+|dy|) step of the missile animation (6BBE) |
+| 0xAA06 | N x3 | BeamStep2! | copy (6BC7) |
+| 0xAA0A | N x6 | BeamPhase! | alternates the two 3x3 missile sprites (6C30) |
+| 0xAA1A | N x12 | N! | SOUND loop counter (6DAA, 6E1D, 6E8F) |
+| 0xAA2A | N x7 | ExpX! | small explosion x (6F48) |
+| 0xAA2E | N x7 | ExpY! | small explosion y (6F56) |
+| 0xAA32 | N x28 | WtSum! | cargo weight accumulator of SUB_6FE6 |
+| 0xAA42 | N x16 | MaxMove2! | max move computed in SUB_6FE6 (715A-7193) |
+| 0xAA9A | N x1 | Alert! | = 2 (72EF) red alert state |
+
+### Arrays (indexed access base addresses)
+
+| base | element size / kinds (uses) | name | evidence |
+|---|---|---|---|
+| 0x1850 | N x92, 2601 elements (0..2600) | G! | (shared COMMON/STARTUP data, name from SPACE_names.json) the 51x51 COMMON single array (CHARINFO.BAS, DS 0x1850); every crew/ship/planet record is G!(index) with computed offsets (see FN_03E2/FN_0414) |
+| 0x4288 | S x9, 9 elements (0..8) | CrewName$ | CHARNAME fields 2..9 (STARTUP: Crew$): string at DS 0xA80A, string at DS 0xA81A, string at DS 0xA998, part of the string at DS 0xA44C |
+| 0x4384 | S x2, 3 elements (0..2) | MissileKillerName$ | 3 NAME strings (STARTUP: N4384$): string at DS 0xA91E; MissileKillerName$(MissileKiller!-1) (5F1D) |
+| 0x4390 | S x2, 25 elements (0..24) | GunName$ | 25 NAME strings (STARTUP: N4390$): part of the string at DS 0xA81A + GunName$(gun type - 1) (5781) |
+| 0x4814 | S x1, 23 elements (0..22) | EquipName$ | (shared COMMON/STARTUP data, name from SPACE_names.json) printed after CondMark$ in the repair / inspect-ship lists (4537, 78E5) |
+| 0x4936 | P x1 | HdrLongRange | SPACESH array 1 (92x7 "LONG RANGE" label): PUT (32,0) at 4484 = header of the scan map (SUB_4469) |
+| 0x4B28 | P x1 | HdrVisual | SPACESH array 4 (92x7 "VISUAL"): PUT (32,0) at 41A1 = header of the visual window (SUB_4186) |
+| 0x4BCE | P x3 | Digit1 | (same SPACESH/SHIP-n bank as SPACE) SPACESH array 5 (4x5 digit "1", offset 837): PUT by SUB_2056 case 1 and case 7 (OR then XOR = erase) |
+| 0x4BD8 | P x1 | Digit2 | (same SPACESH/SHIP-n bank as SPACE) SPACESH array 6 (digit "2", offset 847): SUB_2056 case 2 |
+| 0x4BE2 | P x1 | Digit3 | (same SPACESH/SHIP-n bank as SPACE) SPACESH array 7 (digit "3", offset 857): SUB_2056 case 3 |
+| 0x4BEC | P x1 | Digit4 | (same SPACESH/SHIP-n bank as SPACE) SPACESH array 8 (digit "4", offset 867): SUB_2056 case 4 |
+| 0x4BF6 | P x1 | Digit5 | (same SPACESH/SHIP-n bank as SPACE) SPACESH array 9 (digit "5", offset 877): SUB_2056 case 5 |
+| 0x4C00 | P x1 | Digit6 | (same SPACESH/SHIP-n bank as SPACE) SPACESH array 10 (digit "6", offset 887): SUB_2056 case 6 |
+| 0x4C5A | P x1 | Cursor | SPACESH array 15 (26x24 cursor arrows): PUT (254,160) XOR beside the movement menu (3317) |
+| 0x65FC | P x1 | ShipHead0 | (same SPACESH/SHIP-n bank as SPACE) SHIP-n.BAS bank (BLOAD at &H65FC, 028B): heading 0 sprite, PUT (264,24) at 1D32 (SUB_1CE3) |
+| 0x6690 | P x1 | ShipHead1 | (same SPACESH/SHIP-n bank as SPACE) SHIP-n.BAS heading 1 (1D4C) |
+| 0x6724 | P x1 | ShipHead2 | (same SPACESH/SHIP-n bank as SPACE) SHIP-n.BAS heading 2 (1D66) |
+| 0x67B8 | P x1 | ShipHead3 | (same SPACESH/SHIP-n bank as SPACE) SHIP-n.BAS heading 3 (1D80) |
+| 0x684C | P x1 | ShipHead4 | (same SPACESH/SHIP-n bank as SPACE) SHIP-n.BAS heading 4 (1D9A) |
+| 0x68E0 | P x1 | ShipHead5 | (same SPACESH/SHIP-n bank as SPACE) SHIP-n.BAS heading 5 (1DB4) |
+| 0x6974 | P x1 | ShipHead6 | (same SPACESH/SHIP-n bank as SPACE) SHIP-n.BAS heading 6 (1DCE) |
+| 0x6A08 | P x1 | ShipHead7 | (same SPACESH/SHIP-n bank as SPACE) SHIP-n.BAS heading 7 (1DE8) |
+| 0x6AA2 | P x1 | EnShipHead0 | ENSHP-EnSprite!.BAS frame 0 (24x24, file offset 7): PUT OR in the visual window for enemy heading 0 (SUB_4186 case 1) |
+| 0x6B36 | P x1 | EnShipHead1 | ENSHP-EnSprite!.BAS frame 1 (24x24, file offset 155): PUT OR in the visual window for enemy heading 1 (SUB_4186 case 2) |
+| 0x6BCA | P x1 | EnShipHead2 | ENSHP-EnSprite!.BAS frame 2 (24x24, file offset 303): PUT OR in the visual window for enemy heading 2 (SUB_4186 case 3) |
+| 0x6C5E | P x1 | EnShipHead3 | ENSHP-EnSprite!.BAS frame 3 (24x24, file offset 451): PUT OR in the visual window for enemy heading 3 (SUB_4186 case 4) |
+| 0x6CF2 | P x1 | EnShipHead4 | ENSHP-EnSprite!.BAS frame 4 (24x24, file offset 599): PUT OR in the visual window for enemy heading 4 (SUB_4186 case 5) |
+| 0x6D86 | P x1 | EnShipHead5 | ENSHP-EnSprite!.BAS frame 5 (24x24, file offset 747): PUT OR in the visual window for enemy heading 5 (SUB_4186 case 6) |
+| 0x6E1A | P x1 | EnShipHead6 | ENSHP-EnSprite!.BAS frame 6 (24x24, file offset 895): PUT OR in the visual window for enemy heading 6 (SUB_4186 case 7) |
+| 0x6EAE | P x1 | EnShipHead7 | ENSHP-EnSprite!.BAS frame 7 (24x24, file offset 1043): PUT OR in the visual window for enemy heading 7 (SUB_4186 case 8) |
+| 0x6F62 | I x2, N x1, S x1, 8 elements (0..7) | HeadX% | DATA 182 pairs (46,91),(60,95)...: 8 compass x positions (00A2); HeadX%(i)+228 = gun digit x (19B7) | extent: 8 elements (0..7) - 8 compass positions (00A2 READ loop); HeadY% starts at 0x6F72 = 0x6F62 + 8*2 |
+| 0x6F72 | I x2, N x1, S x1, 8 elements (0..7) | HeadY% | DATA 182 pairs, y (00AB); HeadY%(i)-76 = gun digit y (19CB) | extent: 8 elements (0..7) - 8 compass positions; ends at 0x6F82 (one unused 4-byte slot, then J! at 0x6F86) |
+| 0x70B6 | S x1, 3 elements (0..2) | Status$ | string at DS 0x70C2,string at DS 0x70CA,string at DS 0x70D2 (011B-012D): Status$(FNCrew(m,31)) in the crew panel (17AB) | extent: 3 elements (0..2) - status codes 0..2 |
+| 0x70DA | S x1, 9 elements (0..8) | SlotTag$ | string at DS 0x711A (0191), "P" (0136), "C" (013F), CHR$(49..54) for members 3..8 (0170): crew slot tags | extent: 9 elements (0..8) - (0) "SH", (1) "P", (2) "C", (3..8) CHR$(I+46) = the member digits (0170 loop FOR I! = 3 TO 8) |
+| 0x7120 | 3 elements (0..2) | ClassName$ | string at DS 0x712C,string at DS 0x7136,string at DS 0x7140 (019A-01AC) - not printed in SPBATTLE | extent: 3 elements (0..2) - classes 0..2 stored (019A-01AC) |
+| 0x720C | P x5 | SaveArea | GET buffer: 40x40 under an explosion (684C), 24x24 under a hit (6B35); restored with PUT PSET |
+| 0x73A0 | P x3 | LetterA | SPBTSH.BAS array 0 (5x5 "A", offset 7): enemy ship 1 on the scan map (45D1); PRESET/XOR at 469E/46AF clears the player marker cell |
+| 0x73AE | P x1 | LetterB | SPBTSH.BAS array 1 (5x5 "B", offset 21): enemy ship 2 (45E8) |
+| 0x73BC | P x1 | LetterC | SPBTSH.BAS array 2 (5x5 "C", offset 35): ship 3 (45FF) |
+| 0x73CA | P x1 | LetterD | SPBTSH.BAS array 3 (5x5 "D", offset 49): ship 4 (4616) |
+| 0x73D8 | P x1 | LetterE | SPBTSH.BAS array 4 (5x5 "E", offset 63): ship 5 (462D) |
+| 0x73E6 | P x1 | Plus | SPBTSH.BAS array 5 (3x3 "+", offset 77): missile sprite frame (SUB_6D58) |
+| 0x73EE | P x2 | Star | SPBTSH.BAS array 6 (3x3 "*", offset 85): player marker on the scan map (46D3) and missile frame (6D93) |
+| 0x73F6 | P x1 | Boom1 | SPBTSH.BAS array 7 (40x40 explosion frame 1, offset 93): ship destroyed animation (685C) |
+| 0x758A | P x1 | Boom2 | SPBTSH.BAS array 8 (offset 497): 6875 |
+| 0x771E | P x1 | Boom3 | SPBTSH.BAS array 9 (offset 901): 688E |
+| 0x78B2 | P x1 | Boom4 | SPBTSH.BAS array 10 (offset 1305): 68A7 |
+| 0x7A46 | P x1 | BigBoom1 | SPBTSH.BAS array 11 (40x40, offset 1709): large-ship (tonnage >= 130) explosion 695C |
+| 0x7BDA | P x1 | BigBoom2 | SPBTSH.BAS array 12 (offset 2113): 6976 |
+| 0x7D6E | P x1 | BigBoom3 | SPBTSH.BAS array 13 (offset 2517): 6990 |
+| 0x7F02 | P x1 | BigBoom4 | SPBTSH.BAS array 14 (offset 2921): 69AA |
+| 0x8096 | P x3 | Wreck | SPBTSH.BAS array 15 (24x24, offset 3325): destroyed enemy ship sprite = heading 8 (4465) and drawn over the explosion (+8,+8) (6942/69E9) |
+| 0x812A | P x1 | SmallBoom1 | SPBTSH.BAS array 16 (40x40, offset 3473): small-ship explosion 68CF |
+| 0x82BE | P x1 | SmallBoom2 | SPBTSH.BAS array 17 (offset 3877): 68E9 |
+| 0x8452 | P x1 | SmallBoom3 | SPBTSH.BAS array 18 (offset 4281): 6903 |
+| 0x85E6 | P x1 | Hit1 | SPBTSH.BAS array 19 (24x24, offset 4685): hit-on-player animation frame 1 (6F01, SUB_6EEE) |
+| 0x867A | P x1 | Hit2 | SPBTSH.BAS array 20 (offset 4833): 6F1A |
+| 0x870E | P x1 | Hit3 | SPBTSH.BAS array 21 (offset 4981): 6F33 |
+| 0x87A2 | P x1 | Flash1 | SPBTSH.BAS array 22 (16x16, offset 5129): shield/miss flash frame 1 (6F69, SUB_6F3A) |
+| 0x87E6 | P x1 | Flash2 | SPBTSH.BAS array 23 (offset 5197): 6F99 |
+| 0x882A | P x1 | Flash3 | SPBTSH.BAS array 24 (offset 5265): 6FC9 |
+| 0x887C | N x8, 6 elements (0..5) | TblWeapon! | ENCTABLE cols 8..13 (0..5): weapon slot strengths; sign = weapon kind (>0 missile, <0 gun), ABS = hit chance (0C06-0C2D) | extent: 6 elements (0..5) - ENCTABLE columns 8..13 -> (0..5) (079F); the next variable starts at 0x8894 = 0x887C + 6*4 |
+| 0x8894 | N x22 | Hull! | per ship: hull/crew points from TblHull! (099E); 0 = surrendered/destroyed (2A68-2AA1, 48B8), -1 per crew hit (67BE) |
+| 0x88A8 | N x5 | WeaponDmg! | ships x 6 slots: weapon damage with the kind sign of TblWeapon! (0C2D) |
+| 0x8920 | N x3 | CanMove! | per ship: 1 = engines working (09AC); 0 after hit type 2 (66DE); needed to move (3987) |
+| 0x8934 | N x4 | CanTurn! | per ship: 1 (09B5); 0 after hit type 3 (66F5); needed to turn (34C6, 38C8) |
+| 0x8948 | N x6, 2-D (first dimension 4) | Shield! | 2-D (4 facings x ships): shield strength per facing (0B7D); absorbs player hits (6584); zeroed by hit types 6/7/9 (6740) |
+| 0x8998 | N x9 | EnArmor! | per ship armor (09E5); reduced by hits (6612), < 0 = hull breached (661A) |
+| 0x89AC | N x11 | EnFuel! | per ship fuel (0A0D); surrendered fuel x0.75 goes to Fuel! (2667); -1 per missile fired (5E27) |
+| 0x89C0 | N x63, 6 elements (0..5) | EnX! | per ship x on the 40-wide battle grid (0AF0 initial spread 14..27); screen x = EnX!*8-96 (4224) | extent: 6 elements (0..5) - ships 0..4 and slot 5 = the player ship (FNDist/FNShotX, EnHeading!(5) at 51F1); EnY! starts at 0x89D8 = 0x89C0 + 6*4 |
+| 0x89D8 | N x50, 6 elements (0..5) | EnY! | per ship y (0A35 initial 4 or 16); screen y = EnY!*8-16 (4236) | extent: 6 elements (0..5) - same slots; EnHeading! starts at 0x89F0 = 0x89D8 + 6*4 |
+| 0x89F0 | N x32, 6 elements (0..5) | EnHeading! | per ship heading 0..7 (0B1C initial), 8 = destroyed sprite (6A01); frame of the ENSHP bank (4248) | extent: 6 elements (0..5) - same slots; the next variable starts at 0x8A08 = 0x89F0 + 6*4 |
+| 0x8A08 | N x25 | EnStatus! | per ship: 4 initial (0B2A), 3 in combat, 1 destroyed/surrendered (2A75), 2 escaped off-grid (2A3D), 5 docked (3EE6); set to Outcome! by SUB_2B67 |
+| 0x8A1C | N x21 | WeaponOK! | ships x 6 slots (index ship*6+slot): weapon slot usable (0C06); 0 destroyed (677C); SGN at battle start (52C2) |
+| 0x8A94 | N x9 | ArcA! | per ship: weapon arc index = INT(angle/60) (35BA) |
+| 0x8AA8 | N x4 | ArcB! | per ship: next arc index (35EE) |
+| 0x8ABC | N x6 | Facing! | per ship: facing quadrant 0..3 of the player relative to the ship (3533) |
+| 0x8AD0 | N x31 | MoveScore! | score per candidate heading/move (3590-3671, 3AB3-3BED) |
+| 0x8AF0 | N x14 | EnDefence! | per ship defence value (0B36): subtracted from the player hit chance (56FF) |
+| 0x8B04 | N x12 | Missiles! | per ship missiles left (0AB1); -1 per missile fired (5E41) |
+| 0x8C16 | N x4, 5 elements (0..4) | MoveDX! | 5 candidate moves x: (0,-1) north, (1,0) east, (0,1) south, (-1,0) west, (0,0) stay; elements 1/3 set at 0DCE/0DDC, the rest 0 (3A66, 3C9C) | extent: 5 elements (0..4) - moves 0..4 (3A66 loop); MoveDY! starts at 0x8C2A = 0x8C16 + 5*4 |
+| 0x8C2A | N x4, 5 elements (0..4) | MoveDY! | 5 candidate moves y: elements 0/2 set at 0DC3/0DD4 (3A7F, 3CB3) | extent: 5 elements (0..4) - moves 0..4; the FNInView argument slot starts at 0x8C3E = 0x8C2A + 5*4 |
+| 0x8C42 | N x3, S x1 | ArcAngle! | DATA 3693: 45,135,180,215,315 read at 0E62 (indices 1..5); weapon arc angles per gun position in FN_0EAC |
+| 0x8C76 | S x2, N x1 | CmdName$ | DATA 3991: Wait,Fire,Reload,Switch,Aim,Aim more,Best aim,Rapid fire (0F8C); string at DS 0xA76C; CmdName$(Cmd!) (4D8E) |
+| 0x8C96 | N x9, S x1 | PortX! | DATA 4254 pairs (0FC6): gun port x offsets by heading for the shot origin (FN_10B2) |
+| 0x8CB6 | N x3, S x1 | PortY! | DATA 4254 pairs (0FCF): gun port y offsets (FN_1150) |
+| 0x8D06 | P x7 | ViewSave | GET (16,12)-(143,139) of the picture window (519D, 6A2C); PUT PRESET/PSET to redraw it (60E3-60F5, 6271-6283, 6B76) |
+| 0x9D4E | N x5, S x1 | ApproachTbl! | 5 approaches x 3 attitudes (DATA 4801, 120D): negotiation factor by EnAttitude! (24F8) |
+| 0x9D8A | N x3, S x1 | StrengthTbl! | 5 approaches x 9 strength classes (DATA 4801/4802, 1253): factor by relative strength (24F8) |
+| 0x9E3E | N x3, S x1 | ObjectiveTbl! | 5 approaches x 4 objectives (DATA 4802, 1299): offset by objective (24F8) |
+
+## Unknowns (runtime calls not rendered)
+
+| routine | uses | sites |
+|---|---|---|

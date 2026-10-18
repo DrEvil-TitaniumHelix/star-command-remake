@@ -1,0 +1,878 @@
+{
+ "source": "decode/pseudo/CROSSREF.md section 2 via tools/gmap.py",
+ "size": 2601,
+ "scalars": {
+  "EngineCond": 0,
+  "RetrosCond": 1,
+  "LifeSuptCond": 2,
+  "PowerCond": 3,
+  "CommCond": 4,
+  "ComputerCond": 5,
+  "TowLinkCond": 6,
+  "DefSysCond": 17,
+  "MisKillerCond": 18,
+  "HullCond": 19,
+  "ShipClass": 29,
+  "BaseMove": 44,
+  "BaseWt": 45,
+  "MaxWt": 46,
+  "CargoWt10": 48,
+  "TotalWt10": 50,
+  "Defence": 51,
+  "MaxFuel": 52,
+  "ArmorDiv": 53,
+  "Armor": 55,
+  "CreditsHi": 78,
+  "CreditsLo": 79,
+  "CurMove": 82,
+  "DriveCfg": 85,
+  "StdDelay": 86,
+  "Delay": 88,
+  "UseEGA": 89,
+  "SoundOff": 93,
+  "KillStartAll": 310,
+  "KillPtr": 311,
+  "KillStartMission": 312,
+  "Kills": 313,
+  "KillStartPort": 314,
+  "Tonnage": 315,
+  "Fuel": 2200,
+  "Years": 2202,
+  "Days": 2204,
+  "Hours": 2206,
+  "ChainArg": 2214,
+  "SectorX": 2216,
+  "SectorY": 2217,
+  "CursorCol": 2218,
+  "CursorRow": 2219,
+  "SysCurX": 2220,
+  "SysCurY": 2221,
+  "ShipHeading": 2226,
+  "EntryMode": 2227,
+  "Terrain": 2228,
+  "Surprise": 2229,
+  "MissionKey2": 2234,
+  "BaseEnc": 2235,
+  "MissionCodeB": 2236,
+  "MissionType": 2237,
+  "MissionX1": 2238,
+  "MissionY1": 2239,
+  "MissionCodeA": 2240,
+  "MissionKey1": 2241,
+  "MissionEncB": 2242,
+  "MissionX2": 2243,
+  "MissionY2": 2244,
+  "Gravity10": 2250,
+  "BoardCrew": 2251,
+  "Breathable": 2252,
+  "StationNo": 2253,
+  "BattleWon": 2254,
+  "InBattle": 2255,
+  "Enclosure": 2260,
+  "LastEnemyType": 2263
+ },
+ "rows": [
+  {
+   "index": "0..22",
+   "ds": "1850..",
+   "name": "ship equipment slots = `EquipName$(0..22)` (NAME 344..366): 0 Engine, 1 Retros, 2 Life Suprt, 3 Power, 4 Commun, 5 Computer, 6 Tow Link, 7..10 Shield #1-4, 11..16 Gun #1-6, 17 Def. Systm, 18 Mis. Killr, 19 Hull Int., 20..22 Drop Ship1-3",
+   "meaning": "condition 0 none / 1 ok / 2 broken / 3 unfixable (\"*-Broken #-Unfixable\"); set 1 for 0..6 with a new ship; the shield/gun/defense/killer/drop-ship slots double as fitted flags",
+   "evidence": "NAME parsed with INPUT quoting (crossref); SPACE 4523-4537, 78CA-78E5; STARPORT 2B75-2B99, 68AD-68C1; SPBATTLE 6002-60BD (slot hit)"
+  },
+  {
+   "index": "6",
+   "ds": "1868",
+   "name": "`TowLinkCond!`",
+   "meaning": "\"Tow Link\": 2 = broken -> \"Tow linkage broken\", no salvage tow",
+   "evidence": "PLBATTLE 446C-4471"
+  },
+  {
+   "index": "0, 3",
+   "ds": "1850, 185C",
+   "name": "`EngineCond!`, `PowerCond!`",
+   "meaning": "\"Engine\" / \"Power\": 2 = \"Pilot or ship not ready\", must be 1 to move/rotate; else \"Ship is irreparable\"",
+   "evidence": "SPACE 2224/2273; SPBATTLE 1D5B, 4794"
+  },
+  {
+   "index": "1",
+   "ds": "1854",
+   "name": "`RetrosCond!`",
+   "meaning": "\"Retros\": must be 1 to rotate",
+   "evidence": "SPBATTLE 4794 (test setup 03A8)"
+  },
+  {
+   "index": "2",
+   "ds": "1858",
+   "name": "`LifeSuptCond!`",
+   "meaning": "\"Life Suprt\": SPBATTLE life-support failure when <> 1",
+   "evidence": "SPBATTLE 2C3A, 3024"
+  },
+  {
+   "index": "4",
+   "ds": "1860",
+   "name": "`CommCond!`",
+   "meaning": "\"Commun\": radio working (1)",
+   "evidence": "SPBATTLE 2166"
+  },
+  {
+   "index": "5",
+   "ds": "1864",
+   "name": "`ComputerCond!`",
+   "meaning": "\"Computer\": \"Computer Broken\" unless 1",
+   "evidence": "SPACE 5204"
+  },
+  {
+   "index": "7..10",
+   "ds": "186C..",
+   "name": "shield facing flags",
+   "meaning": "`G!(n+6)` = 1 when shield n fitted; shield arcs on the ship panel",
+   "evidence": "STARPORT 4DE9, A4FE; SPACE 1F25; SPBATTLE 1A37, 5E06"
+  },
+  {
+   "index": "11..16",
+   "ds": "187C..",
+   "name": "gun fitted flags",
+   "meaning": "`G!(n+10)` = 1 when gun n bought",
+   "evidence": "STARPORT 4A7D, A178; SPACE 1770; SPBATTLE 4A6E, 53E0"
+  },
+  {
+   "index": "17",
+   "ds": "1894",
+   "name": "`DefSysCond!`",
+   "meaning": "\"Def. Systm\": 1 when defense hardware installed; MaxMove uses G!(63) when 1",
+   "evidence": "STARPORT 4ED7; SPACE 8112"
+  },
+  {
+   "index": "18",
+   "ds": "1898",
+   "name": "`MisKillerCond!`",
+   "meaning": "\"Mis. Killr\": active (1)",
+   "evidence": "STARPORT 4FDA; SPBATTLE 51C3"
+  },
+  {
+   "index": "19",
+   "ds": "189C",
+   "name": "`HullCond!`",
+   "meaning": "\"Hull Int.\": 1 ok / 2 breached",
+   "evidence": "STARPORT 2BAF; SPBATTLE 6094, 136A"
+  },
+  {
+   "index": "20..22",
+   "ds": "18A0..",
+   "name": "`DropPart1..3!`",
+   "meaning": "drop-ship parts fitted (from `ShipTable!` +0)",
+   "evidence": "STARPORT 2A16-2A55; SPACE 8D58"
+  },
+  {
+   "index": "28",
+   "ds": "18C0",
+   "name": "G!(28)",
+   "meaning": "`ShipTable!(+108)` of the bought ship (unknown use)",
+   "evidence": "STARPORT 2B6C"
+  },
+  {
+   "index": "29",
+   "ds": "18C4",
+   "name": "`ShipClass!`",
+   "meaning": "size class 0..3 -> SHIP-n.BAS picture, `ShipSize$`",
+   "evidence": "SPACE 028B; STARPORT 2B0F, 08DAA"
+  },
+  {
+   "index": "43",
+   "ds": "18FC",
+   "name": "G!(43)",
+   "meaning": "ship index + 1 (0 = no ship)",
+   "evidence": "STARPORT 2AFA, 3509, 9E12; SPACE (not read)"
+  },
+  {
+   "index": "44..46",
+   "ds": "1900..",
+   "name": "`BaseMove!`, `BaseWt!`, `MaxWt!`",
+   "meaning": "from `ShipTable!` +72/+9/+18",
+   "evidence": "STARPORT 2A9C-2B24; SPACE 7717-77CF"
+  },
+  {
+   "index": "48, 50",
+   "ds": "1910, 1918",
+   "name": "`CargoWt10!`, `TotalWt10!`",
+   "meaning": "weights x10, recomputed by the weight routine",
+   "evidence": "SPACE SUB_7F9D; SPBATTLE SUB_6FE6; STARPORT SUB_965F"
+  },
+  {
+   "index": "51",
+   "ds": "191C",
+   "name": "`Defence!`",
+   "meaning": "ship defence %",
+   "evidence": "STARPORT 2AEA; SPACE 7821"
+  },
+  {
+   "index": "52",
+   "ds": "1920",
+   "name": "`MaxFuel!`",
+   "meaning": "fuel capacity",
+   "evidence": "STARPORT 2B59; SPACE 3664"
+  },
+  {
+   "index": "53",
+   "ds": "1924",
+   "name": "`ArmorDiv!`",
+   "meaning": "armor points per ton",
+   "evidence": "STARPORT 2B44; SPACE 801B"
+  },
+  {
+   "index": "55",
+   "ds": "192C",
+   "name": "`Armor!`",
+   "meaning": "armor points",
+   "evidence": "STARPORT 2AD5, 5180; SPACE SUB_1A28; SPBATTLE 5F8F"
+  },
+  {
+   "index": "60/61/62",
+   "ds": "1940..",
+   "name": "`MissileKiller!`, `MissileKillPct!`, weight x10",
+   "meaning": "",
+   "evidence": "STARPORT 4FBE-4FEC; SPACE 7983"
+  },
+  {
+   "index": "63/64/65",
+   "ds": "194C..",
+   "name": "`DefHardware!`, `DefHardwarePct!`, weight x10",
+   "meaning": "",
+   "evidence": "STARPORT 4EBB-4EE9; SPACE 79D9, 8112"
+  },
+  {
+   "index": "66..75 (step 3)",
+   "ds": "1958..",
+   "name": "shield slots",
+   "meaning": "`63+3n`: type, +1 strength, +2 weight x10 (n = 1..4)",
+   "evidence": "STARPORT 4D1E-4DD5, A4C5-A55D; SPBATTLE 5E06 (`67+3f`); SPACE 7A1A-7A5B"
+  },
+  {
+   "index": "78, 79",
+   "ds": "1988, 198C",
+   "name": "`CreditsHi!`, `CreditsLo!`",
+   "meaning": "credits = hi*30000 + lo (shipped 3 / 5000)",
+   "evidence": "all modules' credit routines; STARTUP new-game defaults"
+  },
+  {
+   "index": "82",
+   "ds": "1998",
+   "name": "`CurMove!`",
+   "meaning": "current move allowance",
+   "evidence": "SPACE/SPBATTLE/STARPORT weight routines"
+  },
+  {
+   "index": "83",
+   "ds": "199C",
+   "name": "A(83)",
+   "meaning": "new-game default 27; not read by any module (PLBATTLE included)",
+   "evidence": "STARTUP 0x199C"
+  },
+  {
+   "index": "84",
+   "ds": "19A0",
+   "name": "A(84) DriveType",
+   "meaning": "0 hard disk / 1 one floppy / 2 two floppies; read by the .STR stubs only",
+   "evidence": "STARTUP, STR_FILES.md"
+  },
+  {
+   "index": "85",
+   "ds": "19A4",
+   "name": "`DriveCfg!`",
+   "meaning": "1/2 -> `Drive$` \"A:\"/\"B:\"",
+   "evidence": "SPACE 0064; INSIDE 0052; SPBATTLE 0052; STARPORT 0096"
+  },
+  {
+   "index": "86",
+   "ds": "19A8",
+   "name": "`StdDelay!`",
+   "meaning": "CPU calibration count (STARTUP \"Speed\")",
+   "evidence": "STARTUP; SPACE 8327"
+  },
+  {
+   "index": "87",
+   "ds": "19AC",
+   "name": "A(87)",
+   "meaning": "set 0 at game start; not read elsewhere",
+   "evidence": "STARTUP"
+  },
+  {
+   "index": "88",
+   "ds": "19B0",
+   "name": "`Delay!`",
+   "meaning": "current delay factor",
+   "evidence": "every module's delay loop"
+  },
+  {
+   "index": "89",
+   "ds": "19B4",
+   "name": "`UseEGA!`",
+   "meaning": "1 -> EGA palette / PLBATTLE SCREEN 7",
+   "evidence": "STARCOMM 00D5; STARTUP 0E4B; SPACE 1032; STARPORT 0058; INSIDE 0DF7; PLBATTLE (draft) 0067"
+  },
+  {
+   "index": "90, 91",
+   "ds": "19B8, 19BC",
+   "name": "EGADetected, AdapterPref",
+   "meaning": "STARCOMM probe / STARTUP option 5",
+   "evidence": "STARCOMM.bas.md"
+  },
+  {
+   "index": "92",
+   "ds": "19C0",
+   "name": "A(92) disk in drive",
+   "meaning": "0 disk A / 2 disk B; read by the .STR stubs only",
+   "evidence": "STR_FILES.md"
+  },
+  {
+   "index": "93",
+   "ds": "19C4",
+   "name": "`SoundOff!`",
+   "meaning": "1 = sound off (`SndDur! = 1 - SoundOff!`)",
+   "evidence": "STARTUP; SPACE 018C; SPBATTLE 0083"
+  },
+  {
+   "index": "100..109",
+   "ds": "19E0..",
+   "name": "special bonus flags",
+   "meaning": "1 -> bonus paid (2); 109 = medal of honor, set when `EnBoardArg! = 23` (SPBATTLE) or after a won boarding of portrait type 3 (PLBATTLE)",
+   "evidence": "STARPORT SUB_13DC; SPBATTLE 73BD; PLBATTLE A8CC"
+  },
+  {
+   "index": "110..159",
+   "ds": "1A08..",
+   "name": "mission flags",
+   "meaning": "0 none, 1 active, 2 completed, 3 paid",
+   "evidence": "SPACE 5001, SUB_8CC2; STARPORT 754B-7933, 18F7-1928; SPBATTLE SUB_73A9; INSIDE op 8"
+  },
+  {
+   "index": "160..209",
+   "ds": "1AD0..",
+   "name": "espionage finds",
+   "meaning": "1 found -> 2 rewarded (`FindName$`)",
+   "evidence": "SPACE 60BB; STARPORT 18AF, 98D2"
+  },
+  {
+   "index": "210..259 / 260..309",
+   "ds": "1B98..",
+   "name": "kill list type / tonnage (ring of 50)",
+   "meaning": "",
+   "evidence": "SPBATTLE 2E12-2E2D; SPACE SUB_548D; STARPORT SUB_161E"
+  },
+  {
+   "index": "310..315",
+   "ds": "1D28..",
+   "name": "`KillStartAll!`, `KillPtr!`, `KillStartMission!`, `Kills!`, `KillStartPort!`, `Tonnage!`",
+   "meaning": "a lost boarding retracts the kill entry SPBATTLE made (pointers -1, tonnage/kills -1)",
+   "evidence": "SPBATTLE 2D80-2E53; SPACE 52EA-535C; STARPORT 1779-183E; PLBATTLE 43A1-4400"
+  },
+  {
+   "index": "320..329 / 330..339",
+   "ds": "1D50..",
+   "name": "tow list type / tonnage",
+   "meaning": "a won boarding replaces the lightest tow entry with the boarded ship (\"Towing for salvage\")",
+   "evidence": "SPACE 55E0-5627; STARPORT 184D-1899; PLBATTLE 4484-4550"
+  },
+  {
+   "index": "340..369",
+   "ds": "1DA0..",
+   "name": "gun ammo stock (gun type per slot), weight at +30",
+   "meaning": "",
+   "evidence": "STARPORT 4B3F-4C44; SPACE 17AC, 8273; SPBATTLE 548A"
+  },
+  {
+   "index": "400..499",
+   "ds": "1E90..",
+   "name": "cargo items held (`ItemName$`)",
+   "meaning": "",
+   "evidence": "SPACE 5EDC, 637B, 7B0A; STARPORT 3241; INSIDE (items 10/8/9 needed for oxygen: fields, not cargo)"
+  },
+  {
+   "index": "500..554",
+   "ds": "2020..",
+   "name": "reload counts per weapon type (rebuilt before each list)",
+   "meaning": "",
+   "evidence": "SPACE 976F; STARPORT A00E, A5CE; INSIDE reload lists"
+  },
+  {
+   "index": "669 + 7m (m = 3..8) = 683 + 7n (n = 1..6)",
+   "ds": "2318..",
+   "name": "gun records: type, +1 damage, +2 ammo capacity, +3 weight x10, +4 accuracy, +5 loaded ammo, +6 shots per salvo",
+   "meaning": "",
+   "evidence": "STARPORT 4895-4A59; SPACE 1721-180F, 8208-82DA; SPBATTLE 53F7-5816"
+  },
+  {
+   "index": "726 + k (k = 16..32)",
+   "ds": "23F8..",
+   "name": "miscellaneous-item flags shown by STARPORT \"E-Miscellaneous Items\"",
+   "meaning": "",
+   "evidence": "STARPORT 99BC-9A04"
+  },
+  {
+   "index": "742..758",
+   "ds": "2438..",
+   "name": "set to 1 by the STARPORT test setup only",
+   "meaning": "",
+   "evidence": "STARPORT 0FA4"
+  },
+  {
+   "index": "800..1088 (step 12)",
+   "ds": "24D0..",
+   "name": "squad weapons: type, +1 damage, +2 ammo cap, +3 condition (-1 broken, -2 unfixable), +4 accuracy, +5 weight x10, +6 shots, +7, +8, +9 owner member, +10, +11",
+   "meaning": "",
+   "evidence": "STARPORT 3CFF-3EC0; SPACE 83E2, 9838; SPBATTLE (not used); INSIDE Equip/Fix"
+  },
+  {
+   "index": "1100..1397 (step 3)",
+   "ds": "2980..",
+   "name": "ammo: type, +1 weight x10, +2 owner",
+   "meaning": "",
+   "evidence": "STARPORT 409E-40F3; SPACE 8462; INSIDE Reload"
+  },
+  {
+   "index": "1300 + 100m + f",
+   "ds": "2CA0..",
+   "name": "crew records, m = 1..8 (m = 0 unused), fields 0..99: see §2.3",
+   "meaning": "",
+   "evidence": "FNCrew/FNIdx sites in every module"
+  },
+  {
+   "index": "2199..2212",
+   "ds": "3AAC..",
+   "name": "clock and dates: 2200 `Fuel!`, 2202 `Years!`, 2204 `Days!`, 2206 `Hours!`, 2207/2209 last pay year/day, 2210/2212 last visit year/day",
+   "meaning": "",
+   "evidence": "SPACE SUB_8973; STARPORT 10F5-1103, 1BCF-1BD8"
+  },
+  {
+   "index": "2214",
+   "ds": "3AE8",
+   "name": "`ChainArg!`",
+   "meaning": "record for the chained module (§1.3): starport number, ENCLIST record, first ENCINFO record (PLBATTLE `FirstEnemy!`)",
+   "evidence": "SPACE 3608/6DCF/9034; SPBATTLE 06F8; INSIDE 663D; STARPORT 0106; PLBATTLE 0E4E"
+  },
+  {
+   "index": "2216..2221",
+   "ds": "3AF0..",
+   "name": "`SectorX!/Y!`, `CursorCol!/Row!`, `SysCurX!/Y!`",
+   "meaning": "galaxy position and scan cursors (shipped 28, 2, 7, 7, 6, 6); INSIDE picks the location from `SectorX!`",
+   "evidence": "SPACE 2938, 31C2, 3F11; INSIDE 068E-07F9"
+  },
+  {
+   "index": "2226",
+   "ds": "3B18",
+   "name": "`ShipHeading!`",
+   "meaning": "0..7",
+   "evidence": "SPACE 1CFB; SPBATTLE 18FA, 47B4"
+  },
+  {
+   "index": "2227",
+   "ds": "3B1C",
+   "name": "`EntryMode!`",
+   "meaning": "§1.3",
+   "evidence": "SPACE, STARPORT, PLBATTLE (draft) 432A"
+  },
+  {
+   "index": "2228",
+   "ds": "3B20",
+   "name": "`Terrain!`",
+   "meaning": "PLBATTLE terrain 1..13 = `TerrainName$` index and the TR-n tile file: 1..3 Plains/Mushrooms/Swamp (SPACE `INT(RND*3+1)`), 10 Enemy Ship (SPBATTLE), 11 + `Enclosure!` 0..2 = Enclosed / Semi-enclosed / Open Room (INSIDE)",
+   "evidence": "SPACE 6DF3; SPBATTLE 3EEF; INSIDE 6646; PLBATTLE 0197-0224, DATA 297"
+  },
+  {
+   "index": "2229",
+   "ds": "3B24",
+   "name": "`Surprise!`",
+   "meaning": "0 confrontation / 1 \"The enemy is surprised.\" (enemies skip the first movement) / 2 \"The squad is surprised.\" (the squad skips it)",
+   "evidence": "SPACE 6DD8; INSIDE 6575; SPBATTLE 3EFA; PLBATTLE 01D3-01F5, 4761, 496C"
+  },
+  {
+   "index": "2230..2233",
+   "ds": "3B28..",
+   "name": "enemy strength per zone A/B/N/? (`G!(Zone!+2230)`)",
+   "meaning": "from the MISSION record",
+   "evidence": "SPACE 9080; STARPORT 765E"
+  },
+  {
+   "index": "2234..2244",
+   "ds": "3B38..",
+   "name": "mission parameters: 2234 `MissionKey2!`, 2235 `BaseEnc!`, 2236 `MissionCodeB!`, 2237 `MissionType!`, 2238/2239 `MissionX1!/Y1!`, 2240 `MissionCodeA!`, 2241 `MissionKey1!`, 2242 `MissionEncB!`, 2243/2244 `MissionX2!/Y2!`",
+   "meaning": "the 15 MISSION integers = G!(2230..2244) in file order",
+   "evidence": "STARPORT 765E-768A; SPACE 2B15-2B6F, 5C4E-5D63"
+  },
+  {
+   "index": "2250",
+   "ds": "3B78",
+   "name": "`Gravity10!`",
+   "meaning": "planet gravity x10 (station 1, boarded ship 10, INSIDE locations 1/4 = 10); PLBATTLE `Gravity! = INT(G!(2250))/10`",
+   "evidence": "SPACE 5BF1/3879; SPBATTLE 3F02; INSIDE 06C9/07AF; PLBATTLE 0179"
+  },
+  {
+   "index": "2251",
+   "ds": "3B7C",
+   "name": "`BoardCrew!`",
+   "meaning": "hull/crew points of the boarded ship, used by PLBATTLE as the boarding crew count (groups of up to 3)",
+   "evidence": "SPBATTLE 3F0E; PLBATTLE 12B3-12D3"
+  },
+  {
+   "index": "2252",
+   "ds": "3B80",
+   "name": "`Breathable!`",
+   "meaning": "1 breathable (INSIDE: 0 for locations 3 and 6); PLBATTLE prints \"Breathable\"/\"Unbreathable\" from SGN of it",
+   "evidence": "SPACE 5936-594E; SPBATTLE 3F17; INSIDE 0829-086D; PLBATTLE 02B0-02C4"
+  },
+  {
+   "index": "2253",
+   "ds": "3B84",
+   "name": "`StationNo!`",
+   "meaning": "space station number for INSIDE",
+   "evidence": "SPACE 3870"
+  },
+  {
+   "index": "2254",
+   "ds": "3B88",
+   "name": "`BattleWon!`",
+   "meaning": "= -((CreditsGained! > 0) OR (Surrendered! > 0)) at Battle Over; INSIDE restores `OldX!/OldY!` (the squad stays where it fought) only when nonzero",
+   "evidence": "PLBATTLE 430D; INSIDE 0D51"
+  },
+  {
+   "index": "2255",
+   "ds": "3B8C",
+   "name": "`InBattle!`",
+   "meaning": "INSIDE: 1 while a room battle runs (skips the map reload on return)",
+   "evidence": "INSIDE 6619, 0818"
+  },
+  {
+   "index": "2260",
+   "ds": "3BA0",
+   "name": "`Enclosure!`",
+   "meaning": "room enclosure 0..2, added to terrain 11 by PLBATTLE",
+   "evidence": "INSIDE 6634; PLBATTLE 0224"
+  },
+  {
+   "index": "2261, 2262",
+   "ds": "3BA4, 3BA8",
+   "name": "saved mission codes A/B",
+   "meaning": "STARPORT restores `MissionCodeA!/B!` from them on entry",
+   "evidence": "STARPORT 10C3-10CC, 76B9-76C2"
+  },
+  {
+   "index": "2263",
+   "ds": "3BAC",
+   "name": "`LastEnemyType!`",
+   "meaning": "last space enemy type fought; after a won boarding PLBATTLE compares it with `MissionType!-10` (mission done), `MissionCodeA!-50` / `MissionCodeB!-50` (code cleared)",
+   "evidence": "SPBATTLE 2F16; PLBATTLE 4413-4454 (its `ExitTag!`)"
+  },
+  {
+   "index": "2264",
+   "ds": "3BB0",
+   "name": "G!(2264)",
+   "meaning": "tribute counter (reset with a new mission)",
+   "evidence": "SPBATTLE 2885-28D1; STARPORT 7797"
+  },
+  {
+   "index": "2265",
+   "ds": "3BB4",
+   "name": "G!(2265)",
+   "meaning": "save lock after three wrong rule-book answers",
+   "evidence": "STARPORT 9AAF-9CDB"
+  },
+  {
+   "index": "2266",
+   "ds": "3BB8",
+   "name": "G!(2266)",
+   "meaning": "fuel of the boarded ship; SPACE tests it at startup (0FC7)",
+   "evidence": "SPBATTLE 3ED8; SPACE 0FC7"
+  },
+  {
+   "index": "2300..2597 (step 3)",
+   "ds": "3C40..",
+   "name": "personal items: type (`MiscItemName$`), +1 weight x10, +2 owner; types 1 medkit, 2 repair kit, 3/4 stealth items, 8/9/10 oxygen gear (INSIDE), 11 radiation detector, 3/4 motion detector (INSIDE)",
+   "meaning": "",
+   "evidence": "STARPORT 4716-4759; SPACE SUB_247C; INSIDE 5F6A-60BB, 0829"
+  }
+ ],
+ "crew": [
+  {
+   "field": "0..6",
+   "meaning": "attributes (`AttrName$`: Strength, Speed, Accuracy, Courage, Willpower, Esper, Intelligence); 0 = 0 means empty slot"
+  },
+  {
+   "field": "1",
+   "meaning": "initiative in space combat (fires when >= time slot)"
+  },
+  {
+   "field": "5",
+   "meaning": "esper potential (> 50 -> Esper class allowed)"
+  },
+  {
+   "field": "7",
+   "meaning": "(cleared at recruitment with 7..99)"
+  },
+  {
+   "field": "8",
+   "meaning": "current move"
+  },
+  {
+   "field": "9",
+   "meaning": "training sessions due"
+  },
+  {
+   "field": "10, 11",
+   "meaning": "hit bonus, defence bonus"
+  },
+  {
+   "field": "12, 13, 14",
+   "meaning": "max move, max carried, carried weight"
+  },
+  {
+   "field": "15, 16",
+   "meaning": "HP, max HP"
+  },
+  {
+   "field": "17..28",
+   "meaning": "skill levels (`Skill$(1..12)`); 17 pilot (member 1), 18 gunnery, 19 investigation, 20 medical, 23 comms (member 2), 26 repair"
+  },
+  {
+   "field": "27",
+   "meaning": "esper level (abilities by level)"
+  },
+  {
+   "field": "29",
+   "meaning": "age in days (`*0.005479452` = years)"
+  },
+  {
+   "field": "31",
+   "meaning": "status 0 dead / 1 okay / 2 rad (`Status$`)"
+  },
+  {
+   "field": "32",
+   "meaning": "currently selected weapon record (INSIDE \"Change Wep.\")"
+  },
+  {
+   "field": "33",
+   "meaning": "oxygen-gear flag (INSIDE)"
+  },
+  {
+   "field": "34, 35",
+   "meaning": "rank (`Rank$`), class (`ClassName$`: 0 Marine, 1 Pilot, 2 Soldier, 3 Esper)"
+  },
+  {
+   "field": "36",
+   "meaning": "last aging year"
+  },
+  {
+   "field": "37, 38",
+   "meaning": "battle command, target ship (SPBATTLE); 3 = switching (INSIDE sets 3 on weapon change)"
+  },
+  {
+   "field": "39",
+   "meaning": "carried weight of worn items"
+  },
+  {
+   "field": "40",
+   "meaning": "oxygen-check product (INSIDE)"
+  },
+  {
+   "field": "41..43",
+   "meaning": "sighting hardware: type, weight x10, %"
+  },
+  {
+   "field": "44..46",
+   "meaning": "hand weapon: weight x10, points, field"
+  },
+  {
+   "field": "47..49",
+   "meaning": "armor suit: type, armor cur, armor max"
+  },
+  {
+   "field": "50",
+   "meaning": "clones"
+  },
+  {
+   "field": "54",
+   "meaning": "= attr5/25 on leaving the starport (esper points, INSIDE \"View\" needs >= 7)"
+  },
+  {
+   "field": "55",
+   "meaning": "armor-related field used by the repair pass"
+  },
+  {
+   "field": "56",
+   "meaning": "aim level (SPBATTLE) / oxygen flag (INSIDE)"
+  },
+  {
+   "field": "59",
+   "meaning": "medal of honor received"
+  },
+  {
+   "field": "90, 91",
+   "meaning": "hand weapon item number, armor suit weight x10"
+  },
+  {
+   "field": "99",
+   "meaning": "last field (record end for swaps)"
+  }
+ ],
+ "strings": [
+  {
+   "ds": "4288",
+   "count": 9,
+   "name": "CrewName$(1..8)",
+   "startupName": "Crew$",
+   "nameFields": "CHARNAME 2..9",
+   "usedBy": "all (INSIDE shifts by two: CrewName$(1..6) = members 3..8)"
+  },
+  {
+   "ds": "42AC",
+   "count": 14,
+   "name": "Rank$(1..13)",
+   "startupName": "Rank$",
+   "nameFields": "0..12",
+   "usedBy": "SPACE, STARPORT, INSIDE"
+  },
+  {
+   "ds": "42E4",
+   "count": 16,
+   "name": "Skill$(0..15)",
+   "startupName": "Skill$",
+   "nameFields": "13..28",
+   "usedBy": "SPACE, STARPORT, INSIDE"
+  },
+  {
+   "ds": "4324",
+   "count": 9,
+   "name": "ShipClassName$",
+   "startupName": "N4324$",
+   "nameFields": "29..37",
+   "usedBy": "STARPORT"
+  },
+  {
+   "ds": "4348",
+   "count": 4,
+   "name": "ShipSize$",
+   "startupName": "N4348$",
+   "nameFields": "38..41",
+   "usedBy": "STARPORT"
+  },
+  {
+   "ds": "435C",
+   "count": 5,
+   "name": "ShieldName$",
+   "startupName": "N435C$",
+   "nameFields": "42..46",
+   "usedBy": "STARPORT"
+  },
+  {
+   "ds": "4370",
+   "count": 5,
+   "name": "DefHwName$",
+   "startupName": "N4370$",
+   "nameFields": "47..51",
+   "usedBy": "STARPORT"
+  },
+  {
+   "ds": "4384",
+   "count": 3,
+   "name": "MissileKillerName$",
+   "startupName": "N4384$",
+   "nameFields": "52..54",
+   "usedBy": "STARPORT, SPBATTLE"
+  },
+  {
+   "ds": "4390",
+   "count": 25,
+   "name": "GunName$",
+   "startupName": "N4390$",
+   "nameFields": "55..79",
+   "usedBy": "STARPORT, SPACE, SPBATTLE"
+  },
+  {
+   "ds": "43F4",
+   "count": 54,
+   "name": "WeaponName$",
+   "startupName": "N43F4$",
+   "nameFields": "80..133",
+   "usedBy": "STARPORT, SPACE, INSIDE (named GunName$ there - rename)"
+  },
+  {
+   "ds": "44CC",
+   "count": 6,
+   "name": "HandWeaponName$",
+   "startupName": "N44CC$",
+   "nameFields": "134..139",
+   "usedBy": "STARPORT"
+  },
+  {
+   "ds": "44E4",
+   "count": 4,
+   "name": "SightingName$",
+   "startupName": "N44E4$",
+   "nameFields": "140..143",
+   "usedBy": "STARPORT"
+  },
+  {
+   "ds": "44F4",
+   "count": 16,
+   "name": "ArmorSuitName$",
+   "startupName": "N44F4$",
+   "nameFields": "144..159",
+   "usedBy": "STARPORT"
+  },
+  {
+   "ds": "4534",
+   "count": 11,
+   "name": "MiscItemName$",
+   "startupName": "N4534$",
+   "nameFields": "160..170",
+   "usedBy": "STARPORT (F-Miscellaneous), SPACE (named HandWeaponName$), INSIDE (named ItemName$) - rename both"
+  },
+  {
+   "ds": "4560",
+   "count": 100,
+   "name": "ItemName$` (cargo)",
+   "startupName": "N4560$",
+   "nameFields": "171..270",
+   "usedBy": "SPACE, STARPORT"
+  },
+  {
+   "ds": "46F0",
+   "count": 50,
+   "name": "FindName$",
+   "startupName": "N46F0$",
+   "nameFields": "271..320",
+   "usedBy": "STARPORT"
+  },
+  {
+   "ds": "47B8",
+   "count": 23,
+   "name": "ShipType$",
+   "startupName": "N47B8$",
+   "nameFields": "321..343",
+   "usedBy": "SPACE, STARPORT"
+  },
+  {
+   "ds": "4814",
+   "count": 23,
+   "name": "EquipName$",
+   "startupName": "N4814$",
+   "nameFields": "344..366",
+   "usedBy": "SPACE, STARPORT, SPBATTLE"
+  },
+  {
+   "ds": "4870",
+   "count": 7,
+   "name": "AttrName$",
+   "startupName": "N4870$",
+   "nameFields": "367..373",
+   "usedBy": "SPACE, STARPORT, INSIDE"
+  },
+  {
+   "ds": "488C",
+   "count": 1,
+   "name": "ShipName$",
+   "startupName": "CharName$",
+   "nameFields": "CHARNAME 1",
+   "usedBy": "all"
+  }
+ ]
+}

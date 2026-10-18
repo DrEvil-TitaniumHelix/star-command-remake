@@ -1,0 +1,6 @@
+# Lane: glm-review-rt (GLM 5.3) — independent second-opinion review of the BRUN30 runtime ledger
+
+Read FOREMAN.md first (methodology: evidence with provenance, no invented names). Inputs: `decode/brun30/RT_LEDGER.md` (140 rows, each with name, confidence H/M/L, evidence), `decode/brun30/rt_asm.txt` (routine bodies), `decode/brun30/funcs/*.c` (Ghidra decompile), `decode/brun30/used_routines.tsv`, `decode/brun30/inline_args.json`, and game-side contexts: `python decode/tools/ctx.py decode/listings/SPACE.lst RT3E_42 4 8 3` (run from repo root; Windows python).
+
+Task: for every ledger row, independently check the claimed name against the routine body and at least one game-side context. Priority: all M and L rows first, then H rows in descending use count. Output ONLY `decode/brun30/RT_REVIEW.md` (do not edit RT_LEDGER.md or any other file): a table `| RT | ledger name | verdict (AGREE / DISAGREE / UNSURE) | your evidence (body offsets + context) | proposed name if DISAGREE |`, followed by a `## Disagreements` section explaining each DISAGREE/UNSURE in 2-4 lines with provenance. Never guess silently: if you cannot decide, write UNSURE and say what evidence would settle it.
+When done: `git add decode/brun30/RT_REVIEW.md && git commit -m "glm-review-rt: ledger review"`, append a 5-line block to STATUS.md (commit it with `git add STATUS.md`), reply DONE.

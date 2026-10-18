@@ -1,0 +1,3 @@
+# 055effc re-compare (folded-index regeneration)
+SP-09a	`acceptance/ref/SP-09a.png` (page 2, all items OK; + `SP-09s1/s3/s4.png` other pages)	REF PASS: one item per fixed row I+4 (empty row where an item is not fitted, SPACE 0788D-078E5), working items marked `-` = CondMark$(1) as in the original (the 055effc index fix), `16,3 *Brkn #Unfixable` identical; the engine's `*` / `#` rows are fixture damage the original run had none of
+SP-07	`acceptance/ref/SP-07.png` (GRUNT Repairing) + `SP-07a.png` (A: repair list)	REF PASS for the panel; repair list A (4537): letters A..Q rows 1..17, R..T rows 20..22, U..W col 20, `Repair What?  *-Broken #-Unfixable` identical to an engine run from SP-01 with keys F A (item names = fixture); console arcs equal after F-2
