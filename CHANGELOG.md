@@ -1,5 +1,18 @@
 # Changelog
 
+## v0.1.1-alpha — 2026-11-09 (hotfix: black screen on every launch after the first)
+
+**Fixed.** The first launch after importing your copy played; every launch after it showed a black screen (console:
+`404 modules/startup/strings.js`, on-screen `module for STARCOMM not built yet`). Cause: the service worker
+`game/byoc-sw.js` that serves the converted game modules from the browser's private storage imported its manifest
+through a static JSON import. When the browser stopped and restarted the worker between launches, that import graph
+failed to re-evaluate, the worker never started, and module requests fell through to the network, where the generated
+files do not exist. The worker now reads the manifest with `fetch()` and opens the storage handles itself, with no
+static imports. Verified: four consecutive launches from a clean import all play.
+
+**Updating.** The new worker installs itself on your next launch. If that one launch is still black, close the game
+and launch once more; your imported copy and saves are kept. Nothing else changed.
+
 ## v0.1.0-alpha — 2026-10-18 (first public release)
 
 **What plays.** The whole 1988 game in the browser: title and startup menu, starport (recruiting, training, ships,
