@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Star Command</title>
+<style>
+  html, body { margin: 0; height: 100%; background: #000; overflow: hidden; }
+  body { display: flex; align-items: center; justify-content: center; }
+  canvas { image-rendering: pixelated; display: block; }
+  #crew-status { position: fixed; color: #ddd; background: #080c12; font: 13px/1.4 monospace; white-space: pre-wrap; overflow: auto; padding: 6px; box-sizing: border-box; border: 1px solid #55ffff; }
+  #log-book-button { position: fixed; z-index: 9; color: #55ffff; background: #000; border: 1px solid #55ffff; cursor: pointer; }
+  #log-book { position: fixed; inset: 5%; z-index: 20; overflow: auto; background: #080c12; color: #ddd; border: 1px solid #55ffff; padding: 16px; }
+  #log-book pre { white-space: pre-wrap; }
+  #msg { position: fixed; left: 8px; bottom: 8px; color: #aaa; font: 12px monospace; white-space: pre; }
+</style>
+</head>
+<body>
+<canvas id="screen" width="640" height="400"></canvas>
+<div id="msg"></div>
+<script type="module">
+  import { boot } from './engine/engine.js';
+
+  const msg = document.getElementById('msg');
+  const params = new URLSearchParams(location.search);
+  let assetsMode = params.get('assets');
+  try { assetsMode ??= localStorage.getItem('starcommand:assetsBase'); } catch {   }
+  try {
+    if (!assetsMode && (await fetch('assets/files/NAME', { method: 'HEAD' }).catch(() => null))?.status === 404) assetsMode = 'opfs';
+    let assets = 'assets/';
+    if (assetsMode === 'opfs') {
+      if (params.get('assets') !== 'opfs') { const u = new URL(location.href); u.searchParams.set('assets', 'opfs'); history.replaceState(null, '', u); }
+      const opfs = await import('./byoc/import/opfs.js');
+      if ((await opfs.assetsStatus()).state !== 'ready') {
+        location.replace(`byoc/import/index.html?return=${encodeURIComponent(location.href)}`);
+        await new Promise(() => {});
+      }
+      await opfs.installOpfsFetch();
+      if ('serviceWorker' in navigator) {
+        const sw = navigator.serviceWorker;
+        await sw.register('byoc-sw.js', { type: 'module' });
+        const reg = await sw.ready;
+        if (!sw.controller) {
+          const claimed = new Promise((r) => sw.addEventListener('controllerchange', r, { once: true }));
+          reg.active.postMessage('claim');
+          await claimed;
+        }
+      }
+      assets = opfs.OPFS_PREFIX;
+    }
+    const E = await boot(document.getElementById('screen'), { assets, options: { protection: params.get('protection') === '1', classic: params.get('classic') === '1' } });
+    window.E = E;
+    if (params.has('save')) {
+      const { applySaveParam } = await import('./engine/saves.js');
+      await applySaveParam(E.files, params, { base: `${assets}saves/`, onDone: ({ force }) => {
+        if (force) { const u = new URL(location.href); u.searchParams.delete('force'); history.replaceState(null, '', u); }
+      } });
+    }
+    const { installPanels } = await import('./engine/panels.js');
+    installPanels(E);
+    const demo = params.get('demo');
+    if (demo) {
+      const { runDemo } = await import('./engine/demo.js');
+      await runDemo(E, demo === 'put' ? 'put' : 'su03', params);
+    } else {
+      const { SCREEN_MODULE } = await import('./engine/chain.js');
+      const screen = params.get('screen');
+      const module = screen ? SCREEN_MODULE[screen.slice(0, 2).toUpperCase()] : 'STARCOMM';
+      if (!module) throw new Error(`unknown screen id ${screen}`);
+      try {
+        await E.run(module, screen ? { screen: screen.toUpperCase() } : {});
+      } catch (err) {
+        if (!/Failed to fetch|Cannot find|error loading/i.test(String(err))) throw err;
+        msg.textContent = `module for ${module} not built yet - try ?demo=1 or ?demo=put`;
+      }
+    }
+  } catch (err) {
+    msg.textContent = `engine error: ${err.message}`;
+    console.error(err);
+  }
+</script>
+</body>
+</html>

@@ -1,0 +1,64 @@
+{
+  "_doc": "Per-module options of the BYOC code pipeline (docs/BYOC.md 3.4, lane byoc-b3). qb2bas: the extra qb2bas.py arguments the committed <MOD>.bas.md was generated with (--tempbase = module header word 17 = compiler temp slot T0; --end = last reachable instruction where the code area has a data tail with no incoming edge, see <MOD>_header.md). bas2js: options of tools/byoc/bas2js.py (bas2js_defaults per back end, overridden per module) and where it writes. STARCOMM and STARTUP have hand-written pseudocode and a hand-written game/modules/startup.js, so they stop at the listing.",
+  "originals_default": "../re-targets/starcommand/starcoma",
+  "bas2js_defaults": {
+    "class": {
+      "_doc": "tool_banner = generator name written into the file banners (the historical generator path, kept so the output stays byte-identical); base_class/runtime = what the module class extends and imports; runtime_doc = banner reference; screens_prefix = SCREENS_INDEX.md row prefix; tail 'devjump' = default export via <mod>/devjump.js + E.moduleInstance, 'inside' = ADDR/COMMON_VARS tables + inside/dev.js; locate_cursor = LOCATE args 3..5 -> this.cursor(); play_sync = PLAY not awaited; print_whole = a PRINT whose later item reads POS/CSRLIN is not split per item; fn_inline = DEF FN bodies as call-site templates instead of methods; alias_table = scalar -> [array, index] where the _why does not spell the element out.",
+      "tool_banner": "game/modules/space/bas2js.py",
+      "base_class": "BasicRT",
+      "runtime": "./space/basic.js",
+      "runtime_doc": "game/modules/space/basic.js",
+      "tail": "devjump"
+    },
+    "flow": {
+      "_doc": "info = the BLOADed INFO.BAS single table (base DS address, bytes) -> INFO[]; buffers = PUT/GET buffer names; two_d = first dimension of 2-D INFO arrays; text_fixes = [from, to] replacements in statement text before translation; inject_before = listing offset -> JS lines emitted before that statement; prelude = JS lines at the top of flow() (the module's DEF FNs).",
+      "runtime": "../starport.js",
+      "runtime_doc": "game/modules/starport.js"
+    }
+  },
+  "strings": {"_doc": "STARCOMM and STARTUP run on the hand-written game/modules/startup.js; its game text is this generated table (pipeline.js stringTableJs).", "out": "game/modules/startup/strings.js", "modules": ["STARCOMM", "STARTUP"]},
+  "modules": {
+    "STARCOMM": {},
+    "STARTUP": {},
+    "SPACE": {"qb2bas": ["--tempbase", "A860"],
+              "bas2js": {"backend": "class", "screens_prefix": "SP", "out": "game/modules/space.js", "banks_out": "game/modules/space/banks.js"}},
+    "STARPORT": {"qb2bas": ["--tempbase", "A87C"],
+                 "bas2js": {"backend": "flow", "tool_banner": "game/modules/starport/bas2js.py", "out": "game/modules/starport/flow.js",
+                            "info": {"base": "51F6", "bytes": 5048},
+                            "buffers": ["PortPic", "Logo", "ShipPic0", "ShipPic1", "ShipPic2", "ShipPic3", "Flame",
+                                        "Medal1", "Medal2", "Medal3", "Medal4", "Medal5", "Medal6", "Medal7", "Medal8", "Medal9", "Medal10", "Medal11", "Medal12", "Medal13", "Medal14"],
+                            "two_d": {"TrainTable!": 4},
+                            "text_fixes": [["word ptr [0xae70]", "NumIn%"]],
+                            "_text_fixes_why": "STARPORT.bas.md Manual corrections: at 4895, 4945, 4B04, 4CC2, 4D1E `word ptr [0xae70]` inside an imul expression is the integer variable NumIn% (0xAE70)",
+                            "inject_before": {
+                              "_10C3": "Dev-jump hook: after the frame + port picture are drawn (010BA GOSUB SUB_1EFD returns), the dev page may redirect to a screen label (BUILD_PLAN §4 `?screen=<id>`). Not part of the original flow.",
+                              "10C3": ["// dev hook (not in the original): ?screen=<id> redirects here, after frame + picture",
+                                       "if (rt.devJump) { pc = rt.devJump; rt.devJump = 0; continue; }"],
+                              "9AAF": ["// Optional rule-book protection: skip the lock and challenge; use the original successful save path.",
+                                       "if (rt.E.options?.protection !== true) { pc = 0x9CD5; continue; }"]
+                            },
+                            "prelude": ["const FNCrew = (m, f) => Math.floor(G[ix(m * 100 + f + 1300)] + 0.1);     // SUB_0797 DEF FNCrew",
+                                        "const FNIdx = (m, f) => Math.floor(m * 100 + f + 1300.5);                 // SUB_07C9 DEF FNIdx",
+                                        "const FNCredits = () => Math.floor(G[78] * 30000 + G[79] + 0.5);          // SUB_07E8 DEF FNCredits (CreditsHi!, CreditsLo!)"]}},
+    "INSIDE": {"qb2bas": ["--tempbase", "8968", "--end", "71E3"],
+               "bas2js": {"backend": "class", "tool_banner": "game/modules/inside/bas2js.py", "screens_prefix": "IN",
+                          "base_class": "InsideRT", "runtime": "./inside/runtime.js", "runtime_doc": "game/modules/inside/basic.js",
+                          "tail": "inside", "locate_cursor": true, "play_sync": true, "print_whole": true,
+                          "_print_whole_why": "INSIDE 046F1 PRINT ..; STRING$(-(POS(0) - 23), \".\"); .. evaluates POS(0) before the first item is printed (the SPACE rule prints item by item); kept so the committed inside.js is reproduced, a likely latent dot-leader bug, see docs/byoc/B3.md",
+                          "fn_inline": {
+                            "_why": "INSIDE.bas.md 0359-0426: FNCrew/FNIdx use base 1500 = squad member m is crew slot m+2; FNRoom/FNCell index InMap%",
+                            "FNCrew": "Math.floor(fr(G[cint(({0}) * 100 + ({1}) + 1500)] + 0.1))",
+                            "FNIdx": "Math.floor(fr(({0}) * 100 + ({1}) + 1500.5))",
+                            "FNRoom": {"ref": "InMap%", "idx": "({0}) * 11 + ({1}) + 1369"},
+                            "FNRoomIdx": "fr(({0}) * 11 + ({1}) + 1369)",
+                            "FNCell": {"ref": "InMap%", "idx": "fr(V[\"Y!\"] * 37 + V[\"X!\"])"}
+                          },
+                          "out": "game/modules/inside.js", "banks_out": "game/modules/inside/banks.js"}},
+    "PLBATTLE": {"qb2bas": ["--tempbase", "BE88", "--end", "A921"],
+                 "bas2js": {"backend": "class", "screens_prefix": "PB", "out": "game/modules/plbattle.js", "banks_out": "game/modules/space/banks.js"}},
+    "SPBATTLE": {"qb2bas": ["--tempbase", "6FAA"],
+                 "bas2js": {"backend": "class", "screens_prefix": "SB", "out": "game/modules/spbattle.js", "banks_out": "game/modules/space/banks.js",
+                            "alias_table": {"_why": "SPBATTLE header / SUB_0CD1: index 5 = the player ship in FNDist/FNAngle/FNShotX (bas2js request, build-spbattle)",
+                                            "MyX!": ["EnX!", 5], "MyY!": ["EnY!", 5], "MyHeading2!": ["EnHeading!", 5]}}}
+  }
+}

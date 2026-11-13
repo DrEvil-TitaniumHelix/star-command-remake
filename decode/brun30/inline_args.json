@@ -1,0 +1,16 @@
+{
+ "_doc": "extra inline bytes after the 3-byte INT call. int = fixed count; 'b0' = value of first inline byte; tables of words hold CS offsets, listing offset = CS offset + 0x10",
+ "RT3F_71": 1,
+ "RT3F_85": 1,
+ "RT3F_95": 1,
+ "RT3F_9D": 1,
+ "RT3F_8D": 1,
+ "RT3F_A5": 1,
+ "RT3F_AB": 1,
+ "RT3F_AD": 1,
+ "RT3F_45": 1,
+ "RT3F_B5": 1,
+ "RT3F_B7": "1+b0",
+ "RT3F_5D": "1+2*b0",
+ "RT3F_5E": "1+2*b0"
+}

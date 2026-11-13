@@ -1,0 +1,45 @@
+# id	DOSBox ref cell	verdict (dosbox-ref; compare.py = colour-mapped pixel diff on the 320x200 raster, scripts in acceptance/ref/scripts)
+SU-01	`acceptance/ref/SU-01.png` + `SU-01.wav` (music from 243 s)	REF PASS (0 px after colour mapping)
+SU-02	`acceptance/ref/SU-02.png` (frame 1), `SU-02f2..f4.png`	REF PASS (the engine still = original frame 3 TITLE.BAS[3] at (48,58), 0 px; its label "frame 1" is wrong. Timing measured: frames 1..3 2.4 s each, frame 4 held 3 x 2.4 = 7.2 s, title restore + frame 1 in the same instant, cycle 14.4 s, as 06BC-07AA)
+SU-03	`acceptance/ref/SU-03.png`	REF PASS except glyph `S` (6 px, engine font, qa fix request F-1)
+SU-04	`acceptance/ref/SU-04.png`	REF PASS except glyph `S` (F-1)
+PT-00	`acceptance/ref/PT-00.png` (3 recruits, unnamed Wasp)	REF PASS (frame, inverted banner, LOGO XOR, SPPIC, squad columns identical; diffs = fixture names + glyph `S` F-1)
+PT-02	`acceptance/ref/PT-02.png`	REF PASS (menu exact; diffs = fixture squad + `S` F-1)
+PT-03	`acceptance/ref/PT-03.png`	REF PASS (`S` F-1 only, plus squad data)
+PT-04	`acceptance/ref/PT-04.png`	REF PASS (`S` F-1 only, plus squad data)
+PT-05	`acceptance/ref/PT-05.png`	REF PASS (`S` F-1 only, plus squad data)
+PT-06	`acceptance/ref/PT-06.png` (GRUNT In Dry Dock)	REF PASS (name = data; `S` F-1)
+PT-07	`acceptance/ref/PT-07.png` (0 sessions due: A..C only)	REF PASS (texts/positions match; D row absent because 0 sessions, as the self-check states)
+PT-08	`acceptance/ref/PT-08.png` (mid-bar, ship not yet christened)	REF PASS (box/bar geometry identical; `Refueling ISS` centred on the empty name; bar length = progress)
+PT-09	`acceptance/ref/PT-09.png`	REF PASS (17,14 / 20,2 / 21,2 / 23,2 + dashes; ordinal/section/word length are rolls; `S` F-1)
+PT-10	`acceptance/ref/PT-10.png` (+ `PT-10h.png` first-visit mission text)	REF PASS (16,14 Headquarters, 20,2/21,2 prompt exact)
+PT-11	`acceptance/ref/PT-11.png`	REF PASS (`S` F-1 only)
+PT-12	`acceptance/ref/PT-12.png`	REF PASS (`S` F-1 only)
+PT-13	`acceptance/ref/PT-13.png` (no squad)	REF PASS (20,2 text exact; the two SUB_20B6 pauses last 1.5 s at Delay = Standard)
+PT-14	`acceptance/ref/PT-14.png`	REF PASS (`S` F-1 only)
+PT-15	`acceptance/ref/PT-15.png`	REF PASS (positions exact; Standard Delay Factor 2069 = this emulated CPU's calibration, the engine shows the shipped 188)
+SP-00/SP-01	`acceptance/ref/SP-01.png`	REF FAIL (CIRCLE rasterisation: the rounded console panels and the ship-panel ring differ by 1 px steps along every arc, PAINT follows; qa fix request F-2. Everything else = data: crew, Wasp sprite, fuel/armor values; `S` F-1)
+SP-02	`acceptance/ref/SP-02.png`	REF PASS for the scan panel (GALMAP, header, 20,3); console arcs = SP-00/SP-01 F-2
+SP-03	`acceptance/ref/SP-03.png`	REF PASS for the scan panel; console arcs = F-2
+SP-03a	`acceptance/ref/SP-03a.png`	REF PASS for the panel (STARPORT / LUNA, SPPIC, menu); console arcs = F-2
+SP-03b	`acceptance/ref/SP-03b.png`	REF PASS for the panel (SPSTGRPH, menu); console arcs = F-2
+SP-05	`acceptance/ref/SP-05.png`	REF PASS for the panel; console arcs = F-2
+SP-06	`acceptance/ref/SP-06.png`	REF PASS for the panel; console arcs = F-2
+SP-07	`acceptance/ref/SP-07.png` (GRUNT Repairing)	REF PASS for the panel; console arcs = F-2
+SP-08	`acceptance/ref/SP-08.png`	REF PASS for the panel; console arcs = F-2
+SP-09	`acceptance/ref/SP-09.png`	REF PASS for the panel; console arcs = F-2
+SP-10	`acceptance/ref/SP-10.png` (no items: returns at once)	REF N/A (the original with no equipment returns to SP-01 at once, as the self-check says; the EQUIPING page needs items, not captured yet)
+SP-11	`acceptance/ref/SP-11.png`	REF PASS for the panel (no text cursor visible in the original either); console arcs = F-2
+IN-02	`acceptance/ref/IN-02.png`	REF PASS (15 px: squad marker animation phase + `S`; corridor bar and INSH[42] at (98,47) identical = D-IN-1)
+IN-03	`acceptance/ref/IN-03.png`	REF PASS (picker layout; names = data)
+IN-04	`acceptance/ref/IN-04.png` (no items)	REF N/A (with no equipment E returns at once; EQUIPING page not reached)
+IN-05	`acceptance/ref/IN-05.png`	REF PASS (name = data)
+IN-06	`acceptance/ref/IN-06.png`	REF PASS (picker; names = data)
+IN-07	`acceptance/ref/IN-07.png` (GRUNT page 2)	REF PASS (all labels/columns identical; values = data)
+IN-08	`acceptance/ref/IN-08.png`	REF PASS (5,8 / 8,4 / 8,13 / rows / Press ENTER identical; names = data)
+IN-12	`acceptance/ref/IN-12.png`	REF PASS (0 px; shown for 5 x SUB_0FFB = 0.65 s at Delay = Standard)
+IN-13	`acceptance/ref/IN-13.png`	REF FAIL (the engine draws a solid block cursor at 23,36; the original shows no cursor at all, before, while and after typing - D-IN-2; qa fix request F-3)
+IN-14	`acceptance/ref/IN-14.png`	REF PASS (0 px)
+PB-01	`acceptance/ref/PB-01.png` (location 1 room, squad surprised)	REF PASS vs the same room in `acceptance/integration/run1/r25_inside_enemy.png` (401 px = the surprised line (state) + `S`); layout as the plains still
+PB-02	`acceptance/ref/PB-02.png`, `PB-02a..c.png` (portrait frames)	REF PASS vs `acceptance/integration/run2/r2_pb_battle.png` (panels, grid, table, map frame, door gap identical; unit/obstacle placement random; portrait overlays start at (22,33) = (8,25)+(14,8): D-QA-5)
+PB-08	`acceptance/ref/PB-08.png`	REF PASS (0 px)

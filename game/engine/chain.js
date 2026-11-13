@@ -1,0 +1,38 @@
+export const MODULE_FILES = {
+  STARCOMM: 'startup', STARTUP: 'startup', STARPORT: 'starport', SPACE: 'space',
+  INSIDE: 'inside', SPBATTLE: 'spbattle', PLBATTLE: 'plbattle',
+};
+
+export const SCREEN_MODULE = { CM: 'STARCOMM', SU: 'STARTUP', PT: 'STARPORT', SP: 'SPACE', IN: 'INSIDE', SB: 'SPBATTLE', PB: 'PLBATTLE' };
+
+export class ChainSignal extends Error {
+  constructor(module, opts = {}) { super(`CHAIN ${module}`); this.module = module; this.opts = opts; }
+}
+
+export const moduleName = (name) => String(name).toUpperCase().replace(/^[A-Z]:/, '').replace(/\.(STR|EXE|BAS)$/, '');
+
+export function chain(name, opts = {}) {
+  const mod = moduleName(name);
+  if (!MODULE_FILES[mod]) throw new Error(`CHAIN: unknown module ${name}`);
+  throw new ChainSignal(mod, opts);
+}
+
+export async function run(E, module, opts = {}, loader = (f) => import(`../modules/${f}.js`)) {
+  let mod = moduleName(module);
+  for (;;) {
+    E.currentModule = mod;
+    const m = await loader(MODULE_FILES[mod]);
+    const fn = m.default ?? m.run;
+    let result;
+    try {
+      result = await fn(E, { ...opts, module: mod });
+    } catch (e) {
+      if (!(e instanceof ChainSignal)) throw e;
+      result = e;
+    }
+    if (!(result instanceof ChainSignal)) return result;
+    mod = result.module;
+    opts = result.opts;
+    E.input.clearMenu?.();
+  }
+}

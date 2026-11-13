@@ -1,0 +1,45 @@
+# public_filter.txt — paths REMOVED from the public tree (lane byoc-b6, docs/byoc/public_paths.md).
+# Format: git filter-repo --paths-from-file (plain line = path prefix, glob: / regex: prefixes), used with --invert-paths.
+# Originals (byte copies) and direct extracts only; everything else stays (SC-3 = A).
+
+# --- game/assets: the original disk files and everything converted from them (the importer rebuilds them in OPFS)
+game/assets/files/
+game/assets/data/
+game/assets/atlas.png
+game/assets/atlas.json
+game/assets/saves/veteran/
+
+# --- generated module JS (the compiled program transliterated, game text inline; tier 3 rebuilds it) + generated banks
+game/modules/space.js
+game/modules/inside.js
+game/modules/plbattle.js
+game/modules/spbattle.js
+game/modules/starport/flow.js
+game/modules/space/banks.js
+game/modules/inside/banks.js
+# startup.js (hand-written STARCOMM/STARTUP) no longer carries game text: since byoc-b3 it reads every literal from the
+# generated table below (pipeline.js stringTableJs; the importer writes it from the player's EXEs), so startup.js stays.
+game/modules/startup/strings.js
+
+# --- decode workspace: raw bytes, renders, the manual, Microsoft runtime code
+decode/listings/
+decode/data/str/
+decode/data/png/
+regex:^decode/data/tools/_[A-Z_]+\.json$
+# MODULE_CONSTANTS.md = a complete verbatim dump of every string literal and DATA record (direct extract; Foreman decision
+# for B4, 2026-10-18). The public tree keeps decode/data/MODULE_CONSTANTS.public.md instead (same document, texts as
+# load-module offset + length; `python -I decode/data/tools/gen_constants.py --public`, lane byoc-b3). layout_section.md
+# is its hand-written prose input, which still quotes a few literals.
+decode/data/MODULE_CONSTANTS.md
+decode/data/tools/layout_section.md
+decode/docs/StarCommand_Manual_SSI1988.pdf
+decode/docs/StarCommand_Manual_SSI1988.txt
+decode/brun30/funcs/
+decode/brun30/rt_asm.txt
+decode/rea/brun30_strings.json
+
+# --- acceptance: screenshots of the original and of the port, a recording, saves built from the originals
+glob:acceptance/*.png
+glob:acceptance/**/*.png
+acceptance/ref/SU-01.wav
+acceptance/integration/run2/save/

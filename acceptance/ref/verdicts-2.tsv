@@ -1,0 +1,9 @@
+# run 2/3 (saves s2, s2enc: encounter test intervention G!(2235)=100 in the scratch CHARINFO, as RUN-1/RUN-2 T1)
+SP-04	`acceptance/ref/SP-04.png` (sector (28,3), D, Down, D)	REF PASS for the panel (SYSTEM SCAN, `(29,29) ZN:A`, Star-1, star sprite, planet, menu); console arcs = F-2
+SP-04a	`acceptance/ref/SP-04a.png` (then Left x3, Up x3, D)	REF PASS for the panel (all 14 labels at their rows/cols, planet window, 5-item menu; values = this planet's roll); console arcs = F-2. C here gives `Drop ship or pilot not ready` (no drop ship)
+SB-01	`acceptance/ref/SB-01.png` (3 Pirate ships, key y)	REF PASS for the panel (20,8 Communications Phase, A..F columns, 24,3 prompt); enemy count/positions = encounter roll; console arcs = F-2
+SB-02	`acceptance/ref/SB-02.png` (key f after y)	REF PASS for the panel (Movement Phase 1, A..H, cursor arrows); console arcs = F-2
+SB-02v	`acceptance/ref/SB-02v.png`	REF PASS (VISUAL redraw, player head at (64,64); the right-hand enemy at dx = +7 is drawn at the right edge, sprite x 129..135: D-SB-2); console arcs = F-2
+SB-02s	`acceptance/ref/SB-03.png` (same capture)	REF PASS (grid lines, letters at (EnX*5-23, EnY*5+24), player marker); console arcs = F-2
+SB-03	`acceptance/ref/SB-03.png`	REF PASS (20,11 Enemy Report, A..C-In Range, Press ENTER Key); console arcs = F-2
+SB-04	`acceptance/ref/SB-04.png` (+ `SB-04o.png` Battle Over)	REF PASS (21,3 / 23,3 `Sucessfull`, fuel 90 -> 50 = JumpFuel 40; `Battle Over` 22,14 for 1.5 s); console arcs = F-2

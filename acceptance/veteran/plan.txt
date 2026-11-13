@@ -1,0 +1,150 @@
+# acceptance/veteran/plan.txt — headless play-through of the Veteran Crew save (lane testsave)
+#   python -I tools/serve.py 8097
+#   GAME_URL='http://127.0.0.1:8097/index.html?save=veteran&force=1' node acceptance/integration/drive.mjs plan acceptance/veteran/plan.txt acceptance/veteran
+# Fresh browser profile; the URL is the launcher's (127.0.0.1 = the veteran storage). Writes VET-*.png and run.log here.
+keys w:3000 SPACE
+wait /1-Play/ 30
+# the save was copied in and &force=1 dropped from the address (a reload inside the session keeps progress)
+eval [location.href, E.files.saved('CHARINFO.BAS')?.length, Object.keys(localStorage)]
+keys 1
+wait /Main Menu/ 60
+text
+shot VET-01_starport_main
+keys a
+wait /Recruitment Office/ 20
+shot VET-02_personnel
+keys ENTER
+wait /Main Menu/ 20
+keys i
+wait /Inspect Ship/ 20
+keys a
+wait /Status Report/ 20
+text
+shot VET-03_inspect_ship_1
+keys SPACE
+text
+shot VET-03_inspect_ship_2
+keys SPACE
+text
+shot VET-03_inspect_ship_3
+keys SPACE
+text
+shot VET-03_inspect_ship_4
+keys SPACE
+text
+shot VET-03_inspect_ship_5
+keys ENTER
+wait /Inspect Squad/ 20
+# every crew member: P, C, 1..6 (6 pages each: header, bonuses, skills, gear, items, reloads)
+keys b
+wait /Inspect Who/ 20
+keys p
+wait /Commodore Vasquez/ 20
+text
+keys SPACE
+text
+keys SPACE
+text
+keys SPACE
+text
+keys SPACE
+text
+keys SPACE
+text
+keys SPACE
+wait /Inspect Who/ 20
+keys c
+wait /Brigadier Okafor/ 20
+keys SPACE
+text
+keys SPACE SPACE SPACE SPACE SPACE
+wait /Inspect Who/ 20
+keys 1
+wait /Colonel Brandt/ 20
+keys SPACE SPACE SPACE SPACE
+text
+keys SPACE
+text
+keys SPACE
+wait /Inspect Who/ 20
+keys 2
+wait /Major Nakamura/ 20
+keys SPACE SPACE
+text
+keys SPACE SPACE
+text
+keys SPACE
+text
+keys SPACE
+wait /Inspect Who/ 20
+keys 4
+wait /Major Dubois/ 20
+text
+shot VET-04_inspect_squad_1
+keys SPACE
+text
+shot VET-04_inspect_squad_2
+keys SPACE
+text
+shot VET-04_inspect_squad_3
+keys SPACE
+text
+shot VET-04_inspect_squad_4
+keys SPACE
+text
+shot VET-04_inspect_squad_5
+keys SPACE
+text
+shot VET-04_inspect_squad_6
+keys SPACE
+wait /Inspect Who/ 20
+keys 6
+wait /Major Solveig/ 20
+keys SPACE SPACE
+text
+keys SPACE
+text
+keys SPACE SPACE
+text
+keys SPACE
+wait /Inspect Who/ 20
+keys ENTER
+wait /Inspect Squad/ 20
+keys ENTER
+wait /Main Menu/ 20
+keys h
+wait /review/ 20
+keys y
+wait /vaccine/ 20
+text
+shot VET-05_hq_mission
+keys ENTER
+wait /short/ 20
+keys ENTER
+wait /Main Menu/ 20
+# G-Game Save works with this save (rule-book challenge off by default, v1.1); stay in the game
+keys g
+wait /Quit the game/ 30
+text
+keys n
+wait /Main Menu/ 20
+keys l
+wait /SELECT ONE/ 60
+text
+shot VET-06_space
+eval [E.currentModule, E.state.G[2200], E.state.G[55], E.state.G[82], E.state.G[2227]]
+# PLBATTLE with this save: emulate SPACE's surface-encounter CHAIN (6DC6-6E0B) at the next key poll:
+# ChainArg! 0 (first ENCINFO group), Surprise! 0, Terrain! 1 (plains), Breathable! 1, Gravity10! 10
+eval (() => { const G = E.state.G; G[2214] = 0; G[2229] = 0; G[2228] = 1; G[2252] = 1; G[2250] = 10; G[2260] = 0; const ik = E.input.inkey.bind(E.input); E.input.inkey = () => { E.input.inkey = ik; return E.chain('PLBATTLE.STR'); }; return 'armed'; })()
+wait /GROUND COMBAT/ 30
+text
+shot VET-07_plbattle_briefing
+keys ENTER
+wait /communications/ 30
+keys n w:2500 b w:1500 b w:1500 b w:1500 b w:1500 b w:1500
+wait /ENTER to accept/ 30
+text
+shot VET-08_plbattle_command
+keys ENTER w:1500
+text
+eval [E.currentModule, document.title]

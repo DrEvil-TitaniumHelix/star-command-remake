@@ -1,0 +1,4 @@
+# run 5/6: encounter entry burst (s2enc), black hole (s3)
+SP-12	`acceptance/ref/SP-12.png` (+ `SP-12u.png` `Unidentified, prepare for combat`)	REF PASS (21,3 Scanning nearby craft; the alert box blinks RED / blank 14 times with the siren (SUB_8B33, ~2.6 s here), ends RED, then 3 x SUB_19D1; 23,3 `Unidentified, prepare for combat` shows ~0.1 s before the CHAIN); console arcs equal after F-2
+SB-00	`acceptance/ref/SB-00.png` (`2 Pirate Scout(s)`)	REF PASS (22,3 ` 2 Pirate Scout(s)` at the same cells on SPACE's reused console; visible ~0.1 s before `Establish communications? (y/n)`); console arcs equal after F-2
+SP-03c	`acceptance/ref/SP-03c.png` (+ `SP-03cr.png` after relocation, `SP-01bh.png` before)	REF PASS (VISUAL header, starfield, 22,3 You are pulled into a black hole!; the event runs ~5.5 s, then the console redraw at (15,24) ZN:B as the self-check says); console arcs equal after F-2
