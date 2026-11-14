@@ -15,6 +15,7 @@
   button:disabled { opacity: .4; cursor: default; }
   #drop { border: 1px dashed var(--dim); padding: 18px; margin: 16px 0; text-align: center; color: var(--dim); }
   #drop.over { border-color: var(--accent); color: var(--accent); }
+  #drop.disabled { opacity: .4; }
   #bar { height: 10px; border: 1px solid var(--accent); margin: 16px 0 6px; display: none; }
   #bar div { height: 100%; width: 0; background: var(--accent); }
   #status { white-space: pre-wrap; min-height: 1.5em; }
@@ -28,18 +29,24 @@
 <body>
 <main>
   <h1>Star Command needs your copy of the game</h1>
-  <p>Choose your <b>STARCOMA</b> folder (the folder with STARCOMM.EXE, SPACE.EXE, INFO.BAS ...). The files are checked
-    against the known release, converted on this computer, and kept in this browser's private storage. Nothing is
-    uploaded. Your save games are not touched.</p>
+  <p>Choose the folder containing your original <b>Star Command game</b>, or a ZIP of that folder. Versions 1.0 and 1.2
+    are supported. Your files are checked and prepared on this computer, then stored in this browser. Keep this page
+    open until preparation finishes; the wait depends on your computer and where the files are stored. Importing
+    does not upload your files or change the original folder. If you enable RecompLauncher cloud backups, the launcher
+    can upload the game's browser data, including saved progress and the stored imported copy.</p>
   <p>
     <button id="pick">Choose folder</button>
     <button id="pick-input">Choose folder (alternative)</button>
     <input id="dir-input" type="file" webkitdirectory multiple>
+    <button id="cancel" hidden>Cancel import</button>
+    <button id="new-crew" hidden>Import with a new crew</button>
+    <button id="use-source" hidden>Import the selected folder</button>
   </p>
   <div id="drop">or drop a .zip of the folder here</div>
-  <div id="bar"><div></div></div>
-  <div id="status" class="dim"></div>
-  <div id="problems"></div>
+  <div id="bar" role="progressbar" aria-label="Import progress" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><div></div></div>
+  <div id="elapsed" class="dim"></div>
+  <div id="status" class="dim" role="status" aria-live="polite" aria-atomic="true"></div>
+  <div id="problems" role="alert" aria-atomic="true" tabindex="-1"></div>
   <p id="play" hidden><a href="../../index.html">Play Star Command</a></p>
 </main>
 <script type="module" src="importer.js"></script>

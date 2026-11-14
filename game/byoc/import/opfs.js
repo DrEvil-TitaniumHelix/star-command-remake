@@ -5,10 +5,44 @@ export { MANIFEST, RECIPE_VERSION };
 export const ROOT = 'sc-assets';
 export const OPFS_PREFIX = 'byoc-opfs/';
 
-export async function versionDir(create = false) {
+export async function cacheDir(create = false) {
   const root = await navigator.storage.getDirectory();
   const top = await root.getDirectoryHandle(ROOT, { create });
   return top.getDirectoryHandle(MANIFEST.version, { create });
+}
+
+export async function versionDir(create = false) {
+  const dir = await cacheDir(create), pointer = await readFile(dir, 'active');
+  if (!pointer?.length) return dir;
+  const name = new TextDecoder().decode(pointer);
+  if (!/^import-[a-f0-9-]+$/.test(name)) throw new Error('The imported copy needs repair. Choose your game folder again; your saves will be kept.');
+  return dir.getDirectoryHandle(name);
+}
+
+export async function stageImport(work) {
+  const run = async () => {
+    const base = await cacheDir(true), name = 'import-' + crypto.randomUUID();
+    const current = new TextDecoder().decode(await readFile(base, 'active') ?? new Uint8Array());
+    const previous = new TextDecoder().decode(await readFile(base, 'previous') ?? new Uint8Array());
+    const clean = async (keep) => {
+      for await (const h of base.values()) if (h.kind === 'directory' && /^import-[a-f0-9-]+$/.test(h.name) && !keep.includes(h.name)) await base.removeEntry(h.name, { recursive: true }).catch(() => {});
+    };
+    await clean([current, previous]);
+    const dir = await base.getDirectoryHandle(name, { create: true });
+    try {
+      const result = await work(dir);
+      if (!(await readFile(dir, 'done'))) throw new Error('The import did not finish. Please retry.');
+      await writeFile(base, 'previous', new TextEncoder().encode(current));
+      await writeFile(base, 'active', new TextEncoder().encode(name));
+      await clean([name, current]).catch(() => {});
+      return result;
+    } catch (e) { await base.removeEntry(name, { recursive: true }).catch(() => {}); throw e; }
+  };
+  if (!navigator.locks?.request) throw new Error('This browser cannot safely update the imported copy. Use a current Chrome or Edge.');
+  return navigator.locks.request('star-command-import', { ifAvailable: true }, (lock) => {
+    if (!lock) throw new Error('Another window is importing this game. Wait for it to finish, then retry.');
+    return run();
+  });
 }
 
 export async function fileHandle(dir, path, create = false) {
@@ -24,8 +58,8 @@ export async function fileHandle(dir, path, create = false) {
 
 export async function writeFile(dir, path, bytes) {
   const w = await (await fileHandle(dir, path, true)).createWritable();
-  await w.write(bytes);
-  await w.close();
+  try { await w.write(bytes); await w.close(); }
+  catch (e) { await w.abort().catch(() => {}); throw e; }
 }
 
 export async function readFile(dir, path) {
@@ -41,9 +75,10 @@ export async function assetsStatus() {
     const done = await readFile(dir, 'done');
     if (!done) return out;
     out.done = JSON.parse(new TextDecoder().decode(done));
+    if (!out.done || typeof out.done.at !== 'string' || !Number.isInteger(out.done.files) || typeof out.done.recipe !== 'string' || typeof out.done.manifest !== 'string') throw new Error('Invalid import record');
     out.state = out.done.recipe === RECIPE_VERSION && out.done.manifest === MANIFEST.version ? 'ready' : 'stale';
   } catch (e) {
-    if (e.name !== 'NotFoundError') throw e;
+    if (e.name !== 'NotFoundError') return { ...out, state: 'damaged', message: 'The imported copy could not be read. Check browser storage permissions or choose your game folder again to repair it. Your saves will be kept.' };
   }
   return out;
 }

@@ -125,7 +125,6 @@ export class Display {
     this.img = this.sctx.createImageData(fb.W, fb.H);
     this.overlays = [];
     this.frameHooks = [];
-    this.view = { scale: 1, ox: 0, oy: 0 };
     this.fit = this.fit.bind(this);
     window.addEventListener('resize', this.fit);
     this.fit();
@@ -138,20 +137,13 @@ export class Display {
   }
 
   fit() {
-    const k = Math.max(1, Math.floor(Math.min(window.innerWidth / 640, window.innerHeight / 400)));
+    const k = Math.max(1, Math.floor(Math.min(window.innerWidth / 640, (window.innerHeight - 20) / 400)));
     this.canvas.style.width = `${640 * k}px`;
     this.canvas.style.height = `${400 * k}px`;
   }
 
-  setView(scale = 1, ox = 0, oy = 0) {
-    const s = Math.max(1, scale), w = this.fb.W / s, h = this.fb.H / s;
-    this.view = { scale: s, ox: Math.min(Math.max(0, ox), this.fb.W - w), oy: Math.min(Math.max(0, oy), this.fb.H - h) };
-    this.present(true);
-  }
-
   viewToLogical(cx, cy) {
-    const v = this.view;
-    return { x: v.ox + cx * this.fb.W / 640 / v.scale, y: v.oy + cy * this.fb.H / 400 / v.scale };
+    return { x: cx * this.fb.W / 640, y: cy * this.fb.H / 400 };
   }
 
   present(force = false) {
@@ -159,9 +151,7 @@ export class Display {
     this.fb.toRGBA(this.img.data);
     this.sctx.putImageData(this.img, 0, 0);
     this.ctx.imageSmoothingEnabled = false;
-    const v = this.view;
-    if (v.scale === 1) this.ctx.drawImage(this.src, 0, 0, 640, 400);
-    else this.ctx.drawImage(this.src, v.ox, v.oy, this.fb.W / v.scale, this.fb.H / v.scale, 0, 0, 640, 400);
+    this.ctx.drawImage(this.src, 0, 0, 640, 400);
     for (const o of this.overlays) o(this.ctx);
     this.fb.dirty = false;
   }

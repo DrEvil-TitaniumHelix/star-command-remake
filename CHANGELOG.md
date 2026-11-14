@@ -1,5 +1,49 @@
 # Changelog
 
+## v0.1.3-beta — 2026-11-14
+
+**Import.** Version 1.2 of the game (start menu "Version 1.2 5/23/88") is now accepted as well as version 1.0, and the
+import page says which one it recognised. Copies that have been played are accepted: saved crews and explored maps
+no longer have to match an unplayed release. Readable crew saves can be carried across. Version 1.2 keeps its own
+three Healing fixes in ground combat. Preparation happens locally; it does not upload the selected files. Optional
+RecompLauncher cloud backups can upload game browser data, including saves and the stored imported copy.
+
+**Starting.** The game opens in a normal window in the middle of the screen, no longer fullscreen (F11 switches
+fullscreen on and off). On Windows, double-click **Play Star Command** in the unpacked release. Python and Chrome
+are optional: Windows PowerShell and Microsoft Edge can be used instead. RecompLauncher starts the game without a
+console window and supplies the selected original folder for the first import; keep that folder available for later
+starts too. Closing the game stops its background server. Loading errors now offer a way back to the import page
+after any automatic retries.
+
+**Star Command Plus.** F1 help and Settings moved out of the game picture into a separate window in ordinary Windows
+style, with tabs Help, Settings and Log book. Help follows the screen the game is on. The game keeps running while it
+is open. Settings uses checkboxes selected with the mouse or **Tab** and **Space**. If the browser blocks the window,
+Help and Settings open in a movable panel on the page; the in-game Log book button is still available.
+
+**Changed.**
+- Classic mode is removed. The rule-book question on Game Save stays off unless you switch it on in Settings.
+- Sound has three switches: Sound (everything), Music, Sound effects.
+- Mouse zoom is removed. The picture scales in whole steps as the window grows, with unused space around it.
+- When clicking back into the game after using another window, the first click brings the game back ("Click again to
+  play"); the next click is the first the game acts on.
+- Inside stations the squad has a bright marker (switch: Bright squad marker).
+- "Confrontation with enemies" and the enemy's fire results in ship battles stay on screen long enough to read.
+- The Log book shows whole numbers. The Manual tab and button are hidden, because no manual text is part of the game.
+- Esc closes the Help or Settings panel when it has keyboard focus. The separate Plus window has its own close
+  button; **Alt+F4** closes whichever window has focus.
+- The veteran-crew launcher keeps an existing save. To replace it, use **Load veteran crew** in Settings and confirm
+  with **Load**; **Cancel** keeps the current game.
+
+**Updating.** An intact imported copy is prepared again automatically using the originals already stored in the
+browser. Keep the page open until it finishes, then choose **Play Star Command** if needed. Saved games are stored
+separately and are kept. Choose the original folder again if the browser no longer has a complete imported copy,
+such as after interrupted preparation, or its files fail their checks. Keep the same browser profile and address to
+return to your saves.
+
+**Removing the game.** Deleting an unpacked copy leaves normal-browser imports and saves behind. Deleting a
+launcher-managed installation also removes its separate browser profile and saves. See
+[backups and removal](README.md#backups-and-removing-the-game) before deleting either; the game has no save-export button.
+
 ## v0.1.2-beta — 2026-11-13
 
 **Beta.** Same game as v0.1.1-alpha; no gameplay change. Source comments removed and development logs dropped from

@@ -16,17 +16,17 @@ export function drawText(ctx, E, s, x, y, color = UI.text, scale = 2) {
   return x;
 }
 
-export function drawPanel(ctx, E, x, y, lines, { scale = 2, width } = {}) {
+export function drawPanel(ctx, E, x, y, lines, { scale = 2, width, step = 10 } = {}) {
   const segs = lines.map((l) => (Array.isArray(l) ? l : [typeof l === 'string' ? { text: l } : l]));
   const cols = width ?? Math.max(1, ...segs.map((s) => s.reduce((n, p) => n + String(p.text).length, 0)));
-  const w = cols * 8 * scale + 2 * UI.pad, h = segs.length * 10 * scale + 2 * UI.pad - 2 * scale;
+  const w = cols * 8 * scale + 2 * UI.pad, h = segs.length * step * scale + 2 * UI.pad - 2 * scale;
   x = Math.max(0, Math.min(x, 640 - w)); y = Math.max(0, Math.min(y, 400 - h));
   ctx.save();
   ctx.fillStyle = UI.bg; ctx.fillRect(x, y, w, h);
   ctx.strokeStyle = UI.frame; ctx.lineWidth = 2; ctx.strokeRect(x + 1, y + 1, w - 2, h - 2);
   segs.forEach((s, i) => {
     let cx = x + UI.pad;
-    for (const p of s) cx = drawText(ctx, E, p.text, cx, y + UI.pad + i * 10 * scale, p.color ?? UI.text, scale);
+    for (const p of s) cx = drawText(ctx, E, p.text, cx, y + UI.pad + i * step * scale, p.color ?? UI.text, scale);
   });
   ctx.restore();
   return { x, y, w, h };

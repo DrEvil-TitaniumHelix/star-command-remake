@@ -1,5 +1,7 @@
 import { dosName } from './files.js';
 
+export const charNameText = (names) => names.map((n) => `${String(n ?? '').replace(/[",]/g, '')},`).join('');
+
 export class InputReader {
   constructor(bytes) {
     const z = bytes.indexOf(0x1a);
@@ -98,7 +100,7 @@ export class Data {
   async charName(count = 9) {
     const f = await this.open('CHARNAME');
     const out = [];
-    for (let i = 0; i < count; i++) out.push(f.str());
+    for (let i = 0; i < count; i++) out.push(f.eof() ? '' : f.str());
     return out;
   }
 

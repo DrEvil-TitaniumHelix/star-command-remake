@@ -49,6 +49,7 @@ export function makeEng(E) {
     timer: E.timer ?? stubTimer(),
     state: st,
     data: E.data ?? stubData(),
+    files: E.files,
     chain: E.chain ?? ((m) => { E.text.locate(25, 1); E.text.print(`CHAIN ${m} (module not built yet)`, ';'); return m; }),
   };
 }
@@ -270,6 +271,7 @@ class Startup {
     const crew = state.str('CrewName$');
     for (let i = 0; i <= 8; i++) crew[i] = '';
     state.str('ShipName$')[0] = '';
+    this.files?.forget((n) => /^IN(?:MAP)?-\d+\.BAS$/.test(n));
     const saveEGA = G[EGA_DETECTED];
     for (let i = 0; i <= 2600; i++) G[i] = 0;
     G[CREDITS_HI] = 3;

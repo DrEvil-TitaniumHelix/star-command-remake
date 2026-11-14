@@ -1,8 +1,7 @@
 export const FEATURES = {
   mouse: 'Mouse control',
   noChallenge: 'Skip rule-book question',
-  controlOverlay: 'Control overlay (F1)',
-  mapZoom: 'Map zoom',
+  controlOverlay: 'Help button (?) and gamepad Back',
   enemyTooltips: 'Enemy tooltips',
   rangeOverlay: 'Range overlay',
   hitPreview: 'Hit-chance preview',
@@ -13,20 +12,25 @@ export const FEATURES = {
   speed: 'Speed toggle',
   missionMarker: 'Mission-target marker',
   itemTooltips: 'Item tooltips',
+  squadMarker: 'Bright squad marker',
+  hints: 'Hints',
 };
+export const AUDIO = { sound: 'Sound', music: 'Music', effects: 'Sound effects' };
 const KEY = 'starcommand:settings';
 
 export class Settings {
-  constructor({ classic = false, storage } = {}) {
+  constructor({ storage } = {}) {
     try { this.storage = storage === undefined ? globalThis.localStorage : storage; } catch {   }
     this.values = {};
     try { Object.assign(this.values, JSON.parse(this.storage?.getItem(KEY) ?? '{}') ?? {}); } catch {   }
-    this.forcedClassic = classic;
+    const names = Object.keys(this.values);
+    for (const name of names) if (!Object.hasOwn(FEATURES, name) && !Object.hasOwn(AUDIO, name)) delete this.values[name];
+    if (Object.keys(this.values).length !== names.length) try { this.storage?.setItem(KEY, JSON.stringify(this.values)); } catch {   }
   }
-  get classic() { return this.forcedClassic || !!this.values.classic; }
-  on(name) { return !this.classic && this.values[name] !== false; }
+  hear(kind) { return this.values.sound !== false && this.values[kind] !== false; }
+  on(name) { return this.values[name] !== false; }
   set(name, value) {
-    if (name === 'classic' && this.forcedClassic) return;
+    if (!Object.hasOwn(FEATURES, name) && !Object.hasOwn(AUDIO, name)) return;
     this.values[name] = !!value;
     try { this.storage?.setItem(KEY, JSON.stringify(this.values)); } catch {   }
   }

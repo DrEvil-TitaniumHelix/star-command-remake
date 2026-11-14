@@ -1,5 +1,6 @@
 import { KEY } from './input.js';
-import { drawPanel } from './ui.js';
+import { installPlus } from './plus.js';
+import { hasManual } from './manual.js';
 const names = new Map([[KEY.ENTER,'ENTER'],[KEY.SPACE,'SPACE'],[KEY.PGUP,'PGUP'],[KEY.PGDN,'PGDN'],[KEY.BACKSPACE,'BACKSPACE']]);
 const keyName = k => names.get(k) ?? (k?.[0] === '\0' ? `F${k.charCodeAt(1)-58}` : String(k).toUpperCase());
 const supplements = [
@@ -7,6 +8,10 @@ const supplements = [
     when: (E, screen) => E.currentModule === 'STARPORT' &&
       screen.some(line => /\bSelect (?:Option|A\s+\w+)/.test(line)),
     entries: [['ENTER', 'ENTER: return / finish menu'], ['SPACE', 'SPACE: more / stay on menu']],
+  },
+  {
+    when: (E, screen, regions) => regions.some(r => r.kind === 'selector' && screen[r.y/8]?.[r.x/8+1] !== '-'),
+    entries: [['ENTER', 'ENTER: back / nobody']],
   },
   {
     when: (E, screen, regions) => regions.some(r => r.kind === 'map' || r.kind === 'arrow'),
@@ -22,8 +27,8 @@ const supplements = [
 export function installHelp(E) {
   let active = false, hovered = false;
   const enabled = () => E.settings?.on('controlOverlay') !== false;
-  const isOpen = () => active && enabled();
-  function lines() {
+  const isOpen = () => E.settingsPanel ? E.settingsPanel.isOpen() && E.settingsPanel.tab === 'help' : active;
+  function sections() {
     const screen = E.text.screenText(), regions = E.pointer.regions(), out = [], seen = new Set();
     for (const r of regions) {
       const group = ['arrow','map'].includes(r.kind) ? r.kind : keyName(r.key);
@@ -44,50 +49,44 @@ export function installHelp(E) {
         if (!seen.has(key)) { seen.add(key); out.push(line); }
       }
     }
-    out.push('Gamepad: d-pad = arrows','A = ENTER / highlighted item',
+    const general=['Gamepad: d-pad = arrows','A = ENTER / highlighted item',
       'B = N on Y/N prompts; otherwise Esc','X = SPACE; Y = Y',
       'LB/RB = highlight menu items','Start = Esc menu; Back = this help',
-      'Mouse: click a hotkey = press it');
-    if (E.settings?.on('mapZoom') !== false) out.push('Map zoom: wheel in / out','Right-click out; click cells to step');
-    out.push('Esc: Resume / Save & Quit / Quit menu','F1: this help');
-    if (E.settings?.on('manual')) out.push('Manual: use Manual button / screen selector');
-    if (E.settings?.on('speed')) out.push(`F2: speed (${E.speed?.label ?? 'normal'}; Speed button also cycles)`);
-    if (E.settings?.on('missionMarker')) out.push('Yellow map box: unfinished mission target');
-    return out;
+      'Mouse: click a hotkey = press it','Esc: Resume / Save & Quit / Quit menu','Esc T: Settings; Sound, Music, Sound effects','F1: this help (Star Command Plus window)'];
+    const additions=[];
+    if (hasManual(E) && E.settings?.on('manual')) additions.push('Manual: use Manual button / screen selector');
+    if (E.settings?.on('speed')) additions.push(`F2: speed (${E.speed?.label ?? 'normal'}; Speed button also cycles)`);
+    if (E.settings?.on('missionMarker')) additions.push('Yellow map box: unfinished mission target');
+    if (E.currentModule === 'INSIDE' && E.settings?.on('squadMarker')) additions.push('Bright squad marker: your position on the map');
+    return {screen:out,general,additions};
   }
-  const close = () => { active = false; };
-  const open = () => { if (enabled() && !E.input.modal) active = true; };
+  const lines = () => Object.values(sections()).flat();
+  const close = () => { active = false; if (isOpen()) E.settingsPanel.close(); };
+  const open = () => { if (E.input.modal || E.plus?.open('help')) return; if (E.settingsPanel) E.settingsPanel.open('help'); else active = true; };
   const toggle = () => { if (E.input.modal) return; if (isOpen()) close(); else open(); };
-  toggle.enabled = enabled;
-  E.help = {open,close,toggle,isOpen,lines};
+  toggle.enabled = enabled; toggle.isOpen = isOpen;
+  E.help = {open,close,toggle,isOpen,lines,sections};
+  installPlus(E);
   E.input.onDeviceHelp = toggle;
   const canvas = E.display.canvas, doc = canvas?.ownerDocument;
   let button;
   if (doc?.body) {
     button = doc.createElement('button');
-    button.textContent = '?'; button.type = 'button'; button.title = 'Controls (F1)';
-    button.setAttribute('aria-label','Toggle control help');
+    button.textContent = '?'; button.type = 'button'; button.title = 'Star Command Plus (F1)';
+    button.setAttribute('aria-label','Open Star Command Plus');
     Object.assign(button.style,{position:'fixed',width:'24px',height:'24px',padding:'0',
       background:'rgba(0,0,0,0.65)',color:'#55ffff',border:'1px solid #55ffff',cursor:'pointer',zIndex:'10',display:'none'});
-    button.addEventListener('click',event => { event.stopPropagation(); toggle(); canvas.focus?.(); });
+    button.addEventListener('click',event => { event.stopPropagation(); toggle(); });
     canvas.addEventListener('mouseenter',() => { hovered = true; });
     canvas.addEventListener('mouseleave',event => { hovered = event.relatedTarget === button; });
     button.addEventListener('mouseleave',event => { hovered = event.relatedTarget === canvas; });
     doc.body.appendChild(button);
   }
-  E.display.overlays.push(ctx => {
-    if (!enabled()) close();
+  E.display.overlays.push(() => {
     if (button) {
       const rect = canvas.getBoundingClientRect();
       button.style.left = `${rect.right-24}px`; button.style.top = `${rect.bottom-24}px`;
       button.style.display = enabled() && !E.input.modal && hovered ? 'block' : 'none';
     }
-    if (!isOpen() || E.input.modal) return;
-    const model = ['Controls (F1 / Back to close)',...lines()];
-    const cols = Math.max(...model.map(line => line.length));
-    const scale = cols*16+16 <= 320 && model.length*20+12 <= 400 ? 2 : 1;
-    const wrapped = model.flatMap(line => line.match(/.{1,76}/g) ?? ['']);
-    const width = Math.max(...wrapped.map(line => line.length));
-    drawPanel(ctx,E,640-width*8*scale-16,0,wrapped,{scale});
   });
 }

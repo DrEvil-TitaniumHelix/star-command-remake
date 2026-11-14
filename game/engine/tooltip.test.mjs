@@ -29,8 +29,8 @@ assert.equal(E.tooltips.at(250,120),null);
 assert.equal(E.tooltips.at(8,112),null);
 let panels=0;
 const ctx = new Proxy({}, {get:(_,key)=> key==='fillRect' ? ()=>panels++ : ()=>{}});
-overlays[0](ctx); assert.equal(panels,0,'no pointer means no overlay');
-listeners.mousemove({clientX:56,clientY:240}); overlays[0](ctx); assert.ok(panels>0);
+overlays[0](ctx); const priceOnly=panels; assert.ok(priceOnly>0 && priceOnly<200,'no pointer: only the price beside the row');
+panels=0; listeners.mousemove({clientX:56,clientY:240}); overlays[0](ctx); assert.ok(panels>priceOnly,'pointer adds the tooltip panel');
 enabled=false; assert.equal(E.tooltips.at(28,120),null);
 const before=panels; overlays[0](ctx); assert.equal(panels,before);
 enabled=true;
@@ -58,27 +58,27 @@ const show=(name,prompt='Select A Weapon')=>{
   text.locate(24,2);text.print(prompt,';');return E.tooltips.at(24,120);
 };
 let tip=show('Dagger','Price:');
-assert.ok(tip.lines.includes('base weight: 84'));
-assert.ok(tip.lines.includes('cargo capacity: 28'));
-assert.ok(tip.lines.includes('armor points per ton: 124'));
-assert.ok(tip.lines.includes('size class: Escort'));
-assert.ok(!tip.lines.some(l=>/ship table weight|tons per armor point|size class: 1/.test(l)));
+assert.ok(tip.lines.includes('Base weight: 84'));
+assert.ok(tip.lines.includes('Cargo capacity: 28'));
+assert.ok(tip.lines.includes('Armor points per ton: 124'));
+assert.ok(tip.lines.includes('Size class: Escort'));
+assert.ok(!tip.lines.some(l=>/ship table weight|tons per armor point|size class: 1/i.test(l)));
 tip=show('5.56mm Palm Gun');
-assert.ok(tip.lines.includes('damage type: bullet'));
-assert.ok(tip.lines.includes('required skill: Light Arms'));
-assert.ok(tip.lines.includes('Weapon purchase price: 20.4'));
-assert.ok(tip.lines.includes('Ammo purchase price: 3.6'));
+assert.ok(tip.lines.includes('Damage type: bullet'));
+assert.ok(tip.lines.includes('Required skill: Light Arms'));
+assert.ok(tip.lines.includes('Price: 20.4'));
+assert.ok(tip.lines.includes('Ammo price: 3.6'));
 for (const name of ['5.56mm Palm Gun','Hypervelocity Rocket']) {
   tip=show(name,'Buy ammo for which gun? (1-6)');
   const item=items.find(i=>i.name===name);
-  assert.ok(tip.lines.includes(`Ammo purchase price: ${Number(Math.fround(item.fields['ammo price']*Math.fround(1.2)).toPrecision(7))}`));
+  assert.ok(tip.lines.includes(`Ammo price: ${Number(Math.fround(item.fields['ammo price']*Math.fround(1.2)).toPrecision(7))}`));
   assert.ok(!tip.lines.some(l=>l.startsWith('Base price:')));
 }
-assert.ok(show('Nerve Gas Canister').lines.includes('damage type: chemical'));
-assert.ok(show('Fragmentation Grenade').lines.includes('damage type: explosive'));
+assert.ok(show('Nerve Gas Canister').lines.includes('Damage type: chemical'));
+assert.ok(show('Fragmentation Grenade').lines.includes('Damage type: explosive'));
 const hand=items.find(i=>i.group==='hand weapons' && i.index===5);
 assert.equal(hand.fields['to hit bonus'],info[1062+5+12]);
-assert.ok(show(hand.name,'Select A Hand Weapon').lines.includes(`to hit bonus: ${hand.fields['to hit bonus']}`));
+assert.ok(show(hand.name,'Select A Hand Weapon').lines.includes(`To hit bonus: ${hand.fields['to hit bonus']}`));
 show('5.56mm Palm Gun');listeners.mousemove({clientX:56,clientY:240});
 const idlePixels=fb.pix.slice();
 E.input.modal={key(){}};
@@ -89,6 +89,9 @@ overlays[0](ctx);assert.equal(panels,modalBefore,'modal suppresses gamepad toolt
 E.input.modal=null;overlays[0](ctx);assert.ok(panels>modalBefore,'tooltip resumes after modal');
 assert.deepEqual(fb.pix,idlePixels,'tooltip never modifies framebuffer');
 E.input.highlight=null;listeners.mouseleave();
+{ const fb1=new Framebuffer(2);fb1.mode=1;const t1=new Text(fb1,json('../assets/font8x8.json'));let drawn=0;const c1={fillRect:()=>drawn++};
+  const now=performance.now;performance.now=()=>0;t1.drawCursor(c1,[255,255,255]);assert.equal(drawn,0,'no cursor outside a prompt');
+  t1.typing=true;t1.drawCursor(c1,[255,255,255]);assert.equal(drawn,1,'cursor while typing a name in SCREEN 1');performance.now=now; }
 console.log('tooltip data, Text recognition, selector, pointer, default invisibility and toggle tests pass');
 
 if (process.argv.includes('--shots')) {

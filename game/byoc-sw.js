@@ -1,6 +1,6 @@
 let _ver;
 async function _version(){ if(!_ver){ const r=await fetch(new URL('byoc/import/manifest.json',self.location.href)); _ver=(await r.json()).version; } return _ver; }
-async function versionDir(){ const top=await (await navigator.storage.getDirectory()).getDirectoryHandle('sc-assets'); return top.getDirectoryHandle(await _version()); }
+async function versionDir(){ const top=await (await navigator.storage.getDirectory()).getDirectoryHandle('sc-assets'), base=await top.getDirectoryHandle(await _version()), active=await readFile(base,'active'); if(!active?.size) return base; const name=await active.text(); if(!/^import-[a-f0-9-]+$/.test(name)) throw new Error('Invalid import record'); return base.getDirectoryHandle(name); }
 async function fileHandle(dir,path){ const parts=path.split('/'); try{ for(const p of parts.slice(0,-1)) dir=await dir.getDirectoryHandle(p); return await dir.getFileHandle(parts[parts.length-1]); }catch(e){ if(e.name==='NotFoundError'||e.name==='TypeMismatchError') return null; throw e; } }
 async function readFile(dir,path){ const h=await fileHandle(dir,path); return h? h.getFile():null; }
 

@@ -12,21 +12,71 @@
   #log-book-button { position: fixed; z-index: 9; color: #55ffff; background: #000; border: 1px solid #55ffff; cursor: pointer; }
   #log-book { position: fixed; inset: 5%; z-index: 20; overflow: auto; background: #080c12; color: #ddd; border: 1px solid #55ffff; padding: 16px; }
   #log-book pre { white-space: pre-wrap; }
-  #msg { position: fixed; left: 8px; bottom: 8px; color: #aaa; font: 12px monospace; white-space: pre; }
+  #msg { position: fixed; left: 0; right: 0; bottom: 16px; text-align: center; color: #ddd; font: 16px system-ui, sans-serif; }
+  #msg a { color: #55ffff; margin-left: 8px; }
+  #ask { position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); color: #fff; background: #000; border: 1px solid #55ffff; padding: 16px 24px; font: 20px monospace; }
+  #ask[hidden] { display: none; }
+  #settings-panel { position: fixed; z-index: 30; display: flex; flex-direction: column; width: 280px; max-width: 100vw; max-height: min(420px, calc(100dvh - 16px)); box-sizing: border-box; border: 1px solid #888; border-radius: 3px; background: #f0f0f0; color: #111; color-scheme: light; font: 13px/1.4 "Segoe UI", system-ui, sans-serif; box-shadow: 0 3px 12px #0006; }
+  #settings-panel[hidden], #settings-panel [hidden] { display: none; }
+  #settings-panel .settings-title { display: flex; align-items: center; justify-content: space-between; flex: none; padding: 3px 5px 3px 10px; background: #e1e1e1; border-bottom: 1px solid #bbb; cursor: move; touch-action: none; user-select: none; }
+  #settings-panel button { font: inherit; padding: 2px 9px; }
+  #settings-panel .settings-title button { font-size: 18px; line-height: 1.2; }
+  #settings-panel .settings-body { min-height: 0; overflow: auto; overscroll-behavior: contain; padding: 6px 10px; }
+  #settings-panel label { display: flex; align-items: center; gap: 6px; min-height: 24px; }
+  #settings-panel input { margin: 0; }
+  #settings-panel .settings-footer { flex: none; padding: 8px 10px; border-top: 1px solid #ccc; }
+  #settings-panel .settings-footer p { margin: 8px 0; }
+  #settings-panel .settings-footer button + button { margin-left: 6px; }
+  #settings-panel .settings-tabs { display: flex; gap: 2px; flex: none; padding: 4px 8px 0; border-bottom: 1px solid #bbb; }
+  #settings-panel .settings-tabs button { border: 1px solid #aaa; border-bottom: none; border-radius: 3px 3px 0 0; background: #ddd; }
+  #settings-panel .settings-tabs button[aria-selected="true"] { background: #fff; font-weight: 600; }
+  #click-hint, #hint { position: fixed; top: 2px; left: 0; right: 0; text-align: center; color: #aaa; font: 12px system-ui, sans-serif; white-space: pre; pointer-events: none; }
+  #click-hint[hidden], #hint[hidden] { display: none; }
+  #settings-panel ul { margin: 2px 0 8px; padding-left: 18px; }
 </style>
 </head>
 <body>
-<canvas id="screen" width="640" height="400"></canvas>
+<canvas id="screen" width="640" height="400" tabindex="0"></canvas>
 <div id="msg"></div>
+<div id="ask" hidden></div>
+<div id="click-hint" hidden>Click again to play</div>
+<div id="hint" hidden></div>
 <script type="module">
-  import { boot } from './engine/engine.js';
-
   const msg = document.getElementById('msg');
+  const reimport = () => {
+    const a = document.createElement('a');
+    a.href = `byoc/import/index.html?return=${encodeURIComponent(location.href)}`; a.textContent = 'Import (Enter)';
+    msg.replaceChildren('The game files need to be imported again.', a);
+    addEventListener('keydown', (e) => { if (e.key === 'Enter') location.href = a.href; });
+  };
+  const lost = () => {
+    const a = document.createElement('a');
+    a.href = location.href; a.textContent = 'Reload (Enter)';
+    msg.replaceChildren('The game lost contact with its files. Progress since your last save is lost on reload.', a);
+    addEventListener('keydown', (e) => { if (e.key === 'Enter') location.reload(); });
+  };
+  const net = fetch.bind(window);
+  window.fetch = async (...a) => {
+    for (let i = 0; ; i++) {
+      try { return await net(...a); } catch (e) { if (!(e instanceof TypeError) || i >= 40 || a[1]?.signal?.aborted) throw e; await new Promise((r) => setTimeout(r, 250)); }
+    }
+  };
+  let playing = false;
+  const ask = (text) => new Promise((done) => {
+    const box = document.getElementById('ask'); box.textContent = text; box.hidden = false;
+    const k = (e) => {
+      const y = /^y$/i.test(e.key);
+      if (!y && !/^(n|escape)$/i.test(e.key)) return;
+      e.preventDefault(); e.stopImmediatePropagation(); removeEventListener('keydown', k, true); box.hidden = true; done(y);
+    };
+    addEventListener('keydown', k, true);
+  });
   const params = new URLSearchParams(location.search);
   let assetsMode = params.get('assets');
   try { assetsMode ??= localStorage.getItem('starcommand:assetsBase'); } catch {   }
   try {
-    if (!assetsMode && (await fetch('assets/files/NAME', { method: 'HEAD' }).catch(() => null))?.status === 404) assetsMode = 'opfs';
+    const { boot } = await import('./engine/engine.js');
+    if (!assetsMode && (await fetch('assets/files/NAME', { method: 'HEAD' })).status === 404) assetsMode = 'opfs';
     let assets = 'assets/';
     if (assetsMode === 'opfs') {
       if (params.get('assets') !== 'opfs') { const u = new URL(location.href); u.searchParams.set('assets', 'opfs'); history.replaceState(null, '', u); }
@@ -48,16 +98,18 @@
       }
       assets = opfs.OPFS_PREFIX;
     }
-    const E = await boot(document.getElementById('screen'), { assets, options: { protection: params.get('protection') === '1', classic: params.get('classic') === '1' } });
+    const E = await boot(document.getElementById('screen'), { assets, options: { protection: params.get('protection') === '1' }, storage: params.has('screen') ? (await import('./engine/files.js')).memStorage() : undefined });
     window.E = E;
+    setTimeout(() => { try { sessionStorage.removeItem('sc:retry'); } catch {   } }, 10000);
     if (params.has('save')) {
       const { applySaveParam } = await import('./engine/saves.js');
-      await applySaveParam(E.files, params, { base: `${assets}saves/`, onDone: ({ force }) => {
-        if (force) { const u = new URL(location.href); u.searchParams.delete('force'); history.replaceState(null, '', u); }
-      } });
+      await applySaveParam(E.files, params, { base: `${assets}saves/`, ask });
+      E.input.flush?.();
+      if (params.has('force')) { const u = new URL(location.href); u.searchParams.delete('force'); history.replaceState(null, '', u); }
     }
     const { installPanels } = await import('./engine/panels.js');
     installPanels(E);
+    (await import('./engine/hints.js')).installHints(E, document.getElementById('hint'));
     const demo = params.get('demo');
     if (demo) {
       const { runDemo } = await import('./engine/demo.js');
@@ -67,16 +119,25 @@
       const screen = params.get('screen');
       const module = screen ? SCREEN_MODULE[screen.slice(0, 2).toUpperCase()] : 'STARCOMM';
       if (!module) throw new Error(`unknown screen id ${screen}`);
+      playing = true;
       try {
         await E.run(module, screen ? { screen: screen.toUpperCase() } : {});
       } catch (err) {
         if (!/Failed to fetch|Cannot find|error loading/i.test(String(err))) throw err;
-        msg.textContent = `module for ${module} not built yet - try ?demo=1 or ?demo=put`;
+        console.error(err);
+        if (err instanceof TypeError) lost(); else reimport();
       }
     }
   } catch (err) {
-    msg.textContent = `engine error: ${err.message}`;
-    console.error(err);
+    let n = 9;
+    try { if (err instanceof TypeError && /fetch/i.test(err.message)) { n = +sessionStorage.getItem('sc:retry') || 0; sessionStorage.setItem('sc:retry', n + 1); } } catch {   }
+    if (playing && n < 3) { console.error(err); lost(); }
+    else if (n < 3) {
+      for (let i = 0; i < 40 && !(await net('index.html', { method: 'HEAD' }).then((r) => r.ok, () => false)); i++) await new Promise((r) => setTimeout(r, 250));
+      location.reload();
+    } else {
+      console.error(err); reimport();
+    }
   }
 </script>
 </body>

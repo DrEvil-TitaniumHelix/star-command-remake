@@ -1,4 +1,4 @@
-import { drawPanel } from './ui.js';
+import { drawPanel, drawText, UI } from './ui.js';
 const arr = (E,n) => E.moduleInstance.A(n);
 const val = (E,n) => E.moduleInstance.V[n] ?? 0;
 const crew = (E,m,f) => Math.floor(E.state.G[(E.currentModule==='SPBATTLE'?1300:1500)+100*m+f]+0.1);
@@ -89,12 +89,16 @@ export function enemyRegions(E) {
   }
   return out.filter(r=>r.x>=0&&r.y>=0&&r.x+r.w<=320&&r.y+r.h<=200);
 }
+const span = ns => { const v=ns.map(Math.round), lo=Math.min(...v), hi=Math.max(...v); return v.length ? lo===hi ? `${lo}` : `${lo}-${hi}` : '0'; };
 function describe(E,i) {
   if(E.currentModule==='PLBATTLE') {
-    const units=Array.from({length:arr(E,'GrpSize!')[i]},(_,u)=>i*5+u).filter(u=>arr(E,'UnitHP!')[u]>0);
-    return [`Group ${String.fromCharCode(65+i)}: ${arr(E,'GrpName$')[i]}`,`Alive: ${units.length}`,`HP: ${units.map(u=>fmt(arr(E,'UnitHP!')[u])).join(', ')}`,`Armor: ${units.map(u=>fmt(arr(E,'UnitArmor!')[u])).join(', ')}`,`Weapon: ${units.map(u=>['melee','rockets','flame'][arr(E,'UnitWeapon!')[u]]).join(', ')}`,`Range: ${units.map(u=>arr(E,'UnitWeapon!')[u]===1?6.7:arr(E,'UnitWeapon!')[u]===2?3.7:arr(E,'GrpMeleeRange!')[i]).join(', ')}`,`Tactic: ${arr(E,'GrpTactic!')[i]}`];
+    const size=arr(E,'GrpSize!')[i], units=Array.from({length:size},(_,u)=>i*5+u).filter(u=>arr(E,'UnitHP!')[u]>0);
+    const kinds=[...new Set(units.map(u=>arr(E,'UnitWeapon!')[u]))];
+    return [`Group ${String.fromCharCode(65+i)}: ${arr(E,'GrpName$')[i]}`,`Standing: ${units.length} of ${size}`,`Armor: ${span(units.map(u=>arr(E,'UnitArmor!')[u]))}`,
+      `Weapon: ${kinds.map(k=>['melee','rockets','flame'][k]).join(', ')}`,`Range: ${kinds.map(k=>k===1?7:k===2?4:Math.round(arr(E,'GrpMeleeRange!')[i])).join(', ')}`];
   }
-  return [`Enemy ship ${String.fromCharCode(65+i)}`,`Hull / crew: ${arr(E,'Hull!')[i]}`,`Armor: ${arr(E,'EnArmor!')[i]}`,`Alive: ${Array.from({length:val(E,'NumEnemy!')},(_,j)=>arr(E,'Hull!')[j]).filter(h=>h>0).length}`,`Weapon damage slots: ${Array.from({length:6},(_,s)=>fmt(arr(E,'WeaponDmg!')[i*6+s])).join(', ')}`,`Tactic: ${val(E,'EnTactic!')}`,`Preferred range: ${val(E,'EnTactic!')===2?9:val(E,'EnTactic!')===3?10:'approach'}`];
+  const t=val(E,'EnTactic!');
+  return [`Enemy ship ${String.fromCharCode(65+i)}`,`Hull: ${Math.round(arr(E,'Hull!')[i])}`,`Armor: ${Math.round(arr(E,'EnArmor!')[i])}`,`Keeps to range: ${t===2?9:t===3?10:'closes in'}`];
 }
 export function installCombat(E,canvas=E.display.canvas) {
   let pointer=null, range=false, hit=false;
@@ -114,18 +118,19 @@ export function installCombat(E,canvas=E.display.canvas) {
       const rect=canvas.getBoundingClientRect();b.style.left=`${rect.right-110}px`;b.style.top=`${rect.bottom-44+i*22}px`;
     }
     if(phase&&pb&&range&&enabled('rangeOverlay')) {
-      const m=val(E,'K!'),slot=crew(E,m,32),reach=slot?g(E,slot*12+798):10,v=E.display.view??{scale:1,ox:0,oy:0};
-      ctx.save();ctx.scale(v.scale,v.scale);ctx.translate(-v.ox*2,-v.oy*2);
+      const m=val(E,'K!'),slot=crew(E,m,32),reach=slot?g(E,slot*12+798):10;
+      ctx.save();
       for(let y=5;y<19;y++)for(let x=26;x<40;x++) {const b=reachBand(Math.hypot(x-arr(E,'GrpX!')[5],y-arr(E,'GrpY!')[5]),reach);if(b){ctx.fillStyle=b===2?'rgba(85,255,255,.24)':'rgba(255,255,85,.16)';ctx.fillRect((x*8-8)*2,(y*8-8)*2,16,16);}}
       ctx.restore();drawPanel(ctx,E,0,0,[`Member ${m} reach: cyan A / yellow a`],{scale:1});
     }
     if(phase&&hit&&enabled('hitPreview')) {const p=preview(E);if(p)drawPanel(ctx,E,0,300,p.lines,{scale:1});}
     if(!enabled('enemyTooltips'))return;
+    if(E.currentModule==='SPBATTLE')for(const r of enemyRegions(E)){ctx.fillStyle=UI.bg;ctx.fillRect((r.x+r.w)*2,r.y*2-2,18,20);drawText(ctx,E,String.fromCharCode(65+r.i),(r.x+r.w)*2+1,r.y*2,UI.key,2);}
     let tip;
     const h=E.input.highlight;
     if(h&&E.input.lastDevice==='gamepad')tip=at((h.col-1)*8,(h.row-1)*8);
     if(!tip&&phase&&E.input.lastDevice==='gamepad')tip=describe(E,val(E,pb?'TgtGrp!':'ShieldNo!'));
     if(E.input.lastDevice!=='gamepad'&&pointer){const p=E.display.viewToLogical(pointer.x,pointer.y);tip=at(p.x,p.y);}
-    if(tip)drawPanel(ctx,E,0,0,tip,{scale:1});
+    if(tip)drawPanel(ctx,E,pointer&&E.input.lastDevice!=='gamepad'?pointer.x+12:0,pointer&&E.input.lastDevice!=='gamepad'?pointer.y+12:0,tip,{scale:1});
   });
 }

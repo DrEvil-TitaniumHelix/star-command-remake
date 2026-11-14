@@ -1,6 +1,7 @@
 import { str$, cint as ecint, val as eval_, using } from '../../engine/basic.js';
 import { floatToMbf } from '../../engine/state.js';
 import { BANK_OFFSETS } from './banks.js';
+import { mark, held } from '../space/hold.js';
 
 export const fr = Math.fround;
 export const cint = (x) => ecint(x);
@@ -63,7 +64,7 @@ export class BasicRT {
   async run(entry = 0x0040) {
     try { await this.exec(entry); }
     catch (e) {
-      if (e instanceof Chain) return this.E.chain ? this.E.chain(e.target) : e.target;
+      if (e instanceof Chain) { if (/PLBATTLE/i.test(e.target)) await this.waitMs(1500); return this.E.chain ? this.E.chain(e.target) : e.target; }
       if (e instanceof End) return 'END';
       throw e;
     }
@@ -84,8 +85,7 @@ export class BasicRT {
   async delayLoop(count) {
     const perSec = this.G[86] > 0 ? this.G[86] : 1000;
     const ms = this.E.timer?.delaySeconds ? this.E.timer.delaySeconds(count) * 1000 : (count / perSec) * 1000;
-    const until = this.nowMs() + ms;
-    while (this.nowMs() < until) await this.frame();
+    await held(this, ms, () => this.waitMs(ms));
     this.lastYield = this.nowMs();
   }
 
@@ -98,8 +98,9 @@ export class BasicRT {
     }
     if (last === ';') { if (cur.length) T.print(cur, ';'); }
     else if (last !== ',') T.print(cur.length ? cur : '');
+    mark(this, items);
   }
-  printUsing(fmt, items, semi) { this.E.text.printUsing(fmt, items.length === 1 ? items[0] : items, semi ? ';' : undefined); }
+  printUsing(fmt, items, semi) { mark(this, [fmt]); this.E.text.printUsing(fmt, items.length === 1 ? items[0] : items, semi ? ';' : undefined); }
   locate(r, c) { this.E.text.locate(r ?? undefined, c ?? undefined); }
   cls() { this.E.text.cls(); }
   pos() { return this.E.text.col; }
@@ -164,7 +165,7 @@ export class BasicRT {
     return isStr ? s : val(s);
   }
 
-  inkey() { return this.E.input.inkey(); }
+  inkey() { const k = this.E.input.inkey(); if (k) this.msgAt = 0; return k; }
   timerNow() { return this.E.timer?.now ? this.E.timer.now() : this.nowMs() / 1000; }
   play(s) {
     const u = s.toUpperCase();

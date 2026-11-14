@@ -1,9 +1,9 @@
 import { installSlots, forgetFile, validateSlotName } from './slots.js';
-import { FEATURES } from './settings.js';
-import { drawPanel, UI } from './ui.js';
+import { installSettingsPanel } from './settings-panel.js';
 import { KEY } from './input.js';
 import { ChainSignal } from './chain.js';
-import { dosName } from './files.js';
+import { dosName, Files } from './files.js';
+import { charNameText } from './data.js';
 import { TICKS_PER_SEC } from './timer.js';
 
 export function captureSave(E) {
@@ -27,31 +27,15 @@ export function installEscape(E) {
   if (E.settings) {
     E.options ??= {};
     Object.defineProperty(E.options, 'protection', { configurable: true, enumerable: true,
-      get: () => protectionOverride ?? (E.settings.classic || !E.settings.on('noChallenge')),
+      get: () => protectionOverride ?? !E.settings.on('noChallenge'),
       set: value => { protectionOverride = !!value; } });
   }
   let restartPending = false;
   const checkRestart = () => {
     if (restartPending) { restartPending = false; throw new ChainSignal('STARCOMM'); }
   };
-  let page = false, settingIndex = 0, confirmVeteran = false;
-  const rows = [['classic', 'Classic mode'], ...Object.entries(FEATURES), ['veteran', 'Load veteran crew']];
-  const shortcuts = 'ACDEFGHIJKLM NOPV'.replaceAll(' ', '');
-  async function loadVeteran() {
-    try {
-      const { applySaveParam } = await import('./saves.js');
-      await applySaveParam(E.files, new URLSearchParams('save=veteran&force=1'), { base: `${E.assets ?? 'assets/'}saves/` });
-      globalThis.location?.reload();
-    } catch (error) { confirmVeteran = false; page = false; note = 'Veteran crew not loaded; R to resume'; console.error(error); }
-  }
-  const toggle = () => {
-    const name = rows[settingIndex][0];
-    if (name === 'veteran') { confirmVeteran = true; return; }
-    if (name === 'noChallenge') protectionOverride = undefined;
-    if (name === 'classic') E.settings?.set(name, !E.settings.classic);
-    else if (!E.settings?.classic) E.settings?.set(name, !E.settings.on(name));
-  };
-  let active = false, quitting = false, selected = 0, note = '', checkpoint;
+  installSettingsPanel(E, name => { if (name === 'noChallenge') protectionOverride = undefined; });
+  let active = false, quitting = false, selected = 0, note = '', checkpoint, priorModal, ask = null, failAt = -1e9;
   let release, gate, pausedAt = 0, elapsed = 0, audioWasRunning = false;
   let wallAt = 0, wallPaused = 0;
   const wall = () => (active ? wallAt : performance.now()) - wallPaused;
@@ -82,6 +66,7 @@ export function installEscape(E) {
   const inkey = E.input.inkey.bind(E.input);
   E.input.inkey = () => {
     checkRestart();
+    if (active) return '';
     const k = inkey();
     const waiting = E.currentModule === 'STARPORT' && !k && mainMenu();
     if (waiting && !menuWaiting) menuPoint = captureSave(E);
@@ -123,6 +108,19 @@ export function installEscape(E) {
   if (clock) E.audio.clock = () => (active ? pausedAt : clock()) - elapsed;
   const unlock = E.audio?.unlock?.bind(E.audio);
   if (unlock) E.audio.unlock = () => { if (!active) return unlock(); };
+  const FAIL = 'Could not save: the browser storage is full or blocked.';
+  E.files.onWriteFail = () => { failAt = performance.now(); E.display.present?.(true); };
+  const lose = () => {
+    if (['STARCOMM', 'STARTUP'].includes(E.currentModule)) return false;
+    const d = E.files.saved('CHARINFO.BAS');
+    if (!d) return true;
+    const a = Files.parseBsave(d).body, b = E.state.toBytes();
+    return a.length !== b.length || a.some((x, i) => x !== b[i]);
+  };
+  const wrap = t => t.split(' ').reduce((l, w) => {
+    if (l.length && (l[l.length - 1] + ' ' + w).length <= 32) l[l.length - 1] += ' ' + w; else l.push(w);
+    return l;
+  }, []);
   const labels = () => ['R-Resume', 'S-Save & Quit', 'Q-Quit without saving', 'T-Settings', ...(E.slots?.enabled() ? ['L-Load'] : [])];
   function letters(ctx, value, x, y, color = '#ffffff') {
     ctx.fillStyle = color;
@@ -136,35 +134,31 @@ export function installEscape(E) {
     }
   }
   E.display.overlays.push(ctx => {
-    if (!active) return;
-    if (page) {
-      const lines = ['Settings  (arrows + Enter/Space)', ...rows.map(([name, label], i) => (name === 'veteran' ? {
-        text: `${i === settingIndex ? '>' : ' '}${shortcuts[i]}-${label}`, color: i === settingIndex ? UI.key : UI.text,
-      } : {
-        text: `${i === settingIndex ? '>' : ' '}${shortcuts[i]}-${label}: ${name === 'classic' ? (E.settings?.classic ? 'ON' : 'OFF') : (E.settings?.on(name) ? 'ON' : 'OFF')}${name === 'classic' && E.settings?.forcedClassic ? ' (forced)' : ''}`,
-        color: name !== 'classic' && E.settings?.classic ? UI.dim : i === settingIndex ? UI.key : UI.text,
-      })), 'Esc/B-Back'];
-      drawPanel(ctx, E, 16, 16, lines, { scale: 2, width: 36 });
-      if (confirmVeteran) drawPanel(ctx, E, 48, 160, ['Replace the current game with the', 'veteran crew? (Y/N)'], { scale: 2, width: 33 });
-      return;
+    if (!active && performance.now() - failAt < 5000) {
+      ctx.save(); ctx.fillStyle = '#000000'; ctx.fillRect(48, 8, 544, 48);
+      wrap(FAIL).forEach((s, i) => letters(ctx, s, 64, 14 + i * 18, '#ffff55')); ctx.restore();
     }
+    if (!active) return;
     ctx.save(); ctx.fillStyle = '#000000'; ctx.fillRect(48, 96, 544, E.slots?.enabled() ? 288 : 248);
     ctx.strokeStyle = '#55ffff'; ctx.strokeRect(49, 97, 542, E.slots?.enabled() ? 286 : 246);
-    if (quitting === 'closed') letters(ctx, 'You can close this window.', 96, 192);
+    if (quitting === 'closed') {
+      letters(ctx, 'You can close this window.', 96, 192);
+      letters(ctx, 'Enter - play again', 96, 232);
+    } else if (ask) ask.lines.forEach((s, i) => letters(ctx, s, 80, 160 + i * 24));
     else {
       labels().forEach((s, i) => {
         if (selected === i) { ctx.fillStyle = '#0000aa'; ctx.fillRect(64, 120 + i * 40, 512, 32); }
         letters(ctx, s, 80, 128 + i * 40);
       });
       ctx.save(); ctx.translate(64, E.slots?.enabled() ? 352 : 312);
-      ctx.scale(Math.min(1, 512 / (note.length * 16)), 1);
-      letters(ctx, note, 0, 0, '#ffff55'); ctx.restore();
+      const ls = wrap(note);
+      ls.forEach((s, i) => letters(ctx, s, 0, (i + 1 - ls.length) * 18, '#ffff55')); ctx.restore();
     }
     ctx.restore();
   });
   function resume() {
     if (quitting) return;
-    active = false; E.input.modal = null;
+    active = false; E.input.modal = priorModal ?? null;
     wallPaused += performance.now() - wallAt;
     if (clock) elapsed += clock() - pausedAt;
     if (audioWasRunning) E.audio.ctx?.resume()?.catch?.(() => {});
@@ -173,6 +167,7 @@ export function installEscape(E) {
   async function quit(save, slotName) {
     if (quitting) return;
     quitting = true;
+    E.files.writeError = null;
     try {
       if (save) {
         if (slotName !== undefined) slotName = validateSlotName(slotName);
@@ -189,40 +184,39 @@ export function installEscape(E) {
           try { E.state.G[2265] = 0; E.state.save(); }
           finally { E.state.G[2265] = lock; }
         } else E.files.bsave('CHARINFO.BAS', point.body, point.header.seg, point.header.off);
-        E.data.writeText('CHARNAME', point.names.map(n => `${n ?? ''},`).join(''));
+        E.data.writeText('CHARNAME', charNameText(point.names));
         if (!starport) for (const [n, bytes] of journal) {
           if (bytes) write(n, bytes);
           else forgetFile(E.files, n);
         }
         if (point.logbook) write('LOGBOOK', point.logbook);
         else forgetFile(E.files, 'LOGBOOK');
+        if (E.files.writeError) throw E.files.writeError;
         if (slotName) await E.slots.save(slotName);
       }
       globalThis.window?.close();
       setTimeout(() => { quitting = 'closed'; E.fb.cls(); E.display.present?.(true); }, 300);
-    } catch (error) { quitting = false; note = 'Save failed; R to resume'; console.error(error); throw error; }
+    } catch (error) { quitting = false; failAt = -1e9; note = FAIL; console.error(error); throw error; }
   }
+  const confirm = (lines, yes) => { if (lose()) ask = { lines, yes }; else yes(); };
   function choose(i) {
-    if (i === 4) { if (E.slots?.enabled()) E.slots.openLoad(); }
-    else if (i === 3) { page = true; settingIndex = 0; }
+    if (i === 4) { if (E.slots?.enabled()) confirm(['Loading replaces the', 'game in progress.', 'Load anyway? (Y/N)'], () => E.slots.openLoad()); }
+    else if (i === 3) { resume(); if (!E.plus?.open('settings')) E.settingsPanel?.open('settings'); }
     else if (i === 0) resume();
-    else if (i === 1 && E.slots?.enabled()) E.slots.openSave(name => quit(true, name));
-    else void quit(i === 1).catch(() => {});
+    else if (i === 1) {
+      const go = () => E.slots?.enabled() ? E.slots.openSave(name => quit(true, name)) : void quit(true).catch(() => {});
+      if (E.currentModule === 'STARPORT') go();
+      else ask = { lines: wrap('You are away from a starport. Your game returns to your last starport save. Quit? (Y/N)'), yes: go };
+    }
+    else confirm(['Quit without saving? (Y/N)'], () => void quit(false).catch(() => {}));
   }
   function key(k) {
+    if (quitting === 'closed' && k === KEY.ENTER) return globalThis.location?.reload();
     if (quitting) return;
     const upper = k.toUpperCase();
-    if (page && confirmVeteran) {
-      if (upper === 'Y') void loadVeteran();
-      else if (upper === 'N' || k === KEY.ESC || upper === 'B') confirmVeteran = false;
-      return;
-    }
-    if (page) {
-      if (k === KEY.ESC || upper === 'B') page = false;
-      else if (k === KEY.UP || k === KEY.LEFT) settingIndex = (settingIndex + rows.length - 1) % rows.length;
-      else if (k === KEY.DOWN || k === KEY.RIGHT) settingIndex = (settingIndex + 1) % rows.length;
-      else if (k === KEY.ENTER || k === KEY.SPACE) toggle();
-      else if (upper.length === 1 && shortcuts.includes(upper)) { settingIndex = shortcuts.indexOf(upper); toggle(); }
+    if (ask) {
+      const yes = ask.yes;
+      if (upper === 'Y') { ask = null; yes(); } else if (upper === 'N' || k === KEY.ESC) ask = null;
       return;
     }
     if (k === KEY.ESC || upper === 'R' || upper === 'B') resume();
@@ -236,34 +230,34 @@ export function installEscape(E) {
   }
   E.input.onDeviceEscape = () => {
     if (active) return;
+    if (E.help?.isOpen?.()) return E.help.close();
+    if (E.settingsPanel?.isOpen()) return E.settingsPanel.close();
     frozenTimer = E.timer?.now?.() ?? 0;
     wallAt = performance.now();
-    active = true; page = false; confirmVeteran = false; selected = 0; gate = new Promise(r => { release = r; });
+    priorModal = E.input.modal;
+    active = true; selected = 0; ask = null; gate = new Promise(r => { release = r; });
     pausedAt = clock?.() ?? 0;
     audioWasRunning = E.audio?.ctx?.state === 'running';
     if (audioWasRunning) E.audio.ctx.suspend()?.catch?.(() => {});
     note = E.currentModule === 'STARPORT' ?
       (menuWaiting && mainMenu(true) ? 'Save current starport state' : menuPoint ?
         'Saved as of the starport main menu' : 'Saved as of arrival at the starport') :
-      checkpoint ? 'Saved as of starport departure' : 'Saved as of last disk save';
+      checkpoint ? 'Saved as of starport departure' : 'Saved as of your last save';
     E.input.modal = E.escape.modal = { key, click(x, y) {
-      if (page && !quitting) {
-        if (confirmVeteran) return;
-        if (x >= 8 && x < 304) {
-          const i = Math.floor((y - 22) / 10);
-          if (i >= 0 && i < rows.length) { settingIndex = i; toggle(); }
-          else if (i === rows.length) page = false;
-        }
-        return;
-      }
-      if (!quitting && x >= 32 && x < 288) {
+      if (!quitting && !ask && x >= 32 && x < 288) {
         const i = Math.floor((y - 60) / 20);
         if (i >= 0 && i < labels().length && y < 76 + i * 20) { selected = i; choose(i); }
       }
     } };
   };
+  const device = E.input.device.bind(E.input);
+  E.input.device = (k, ...args) => {
+    if (k === KEY.ESC && !active) return E.input.onDeviceEscape();
+    return device(k, ...args);
+  };
   E.escape = { resume, modal: null, restart() {
     checkpoint = undefined; journal.clear(); menuPoint = entryPoint = undefined;
+    priorModal = null;
     E.input.flush(); restartPending = true; resume();
   } };
   installSlots(E);

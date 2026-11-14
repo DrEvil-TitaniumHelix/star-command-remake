@@ -3,12 +3,14 @@ import { itemsJson } from './items.js';
 import { buildAtlas } from './atlas.js';
 import { buildVeteran } from './veteran.js';
 import { buildCode } from './code.js';
+import { newSave, saveRead } from './saves.js';
 
 export { RECIPE_VERSION } from './version.js';
 
 export const STEPS = 5;
 
-export async function* convertAll(read, { deflate, gmap, code = null, onStep = () => {} }) {
+export async function* convertAll(read, { deflate, gmap, code = null, onStep = () => {}, allowNewCrew = false }) {
+  read = saveRead(read, gmap, allowNewCrew);
   onStep(0, 'data files and tables');
   const tables = {};
   for (const out of convertData(read)) {
@@ -20,12 +22,12 @@ export async function* convertAll(read, { deflate, gmap, code = null, onStep = (
   onStep(2, 'sprite atlas');
   yield* await buildAtlas(read, deflate);
   onStep(3, 'veteran crew save');
-  const v = await buildVeteran({ blank: read('CHARINFO.BAS'), info: tables['INFO.BAS'].values, names: tables.NAME.fields, mission: tables.MISSION.records, gmap });
+  const v = await buildVeteran({ blank: newSave(gmap), info: tables['INFO.BAS'].values, names: tables.NAME.fields, mission: tables.MISSION.records, gmap });
   yield { path: 'saves/veteran/CHARINFO.BAS', bytes: v.charinfo };
   yield { path: 'saves/veteran/CHARNAME', bytes: v.charname };
   if (code) {
     onStep(4, 'module code');
-    yield* buildCode(code.files, code.cfg, code.ann);
+    yield* buildCode(new Map([...code.files.keys()].map((n) => [n, read(n)])), code.cfg, code.ann, code.vers);
   }
   onStep(STEPS, 'done');
 }

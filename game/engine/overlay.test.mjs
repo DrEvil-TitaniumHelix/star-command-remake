@@ -5,7 +5,8 @@ import { Data } from './data.js';
 import { Input, KEY } from './input.js';
 import { Framebuffer } from './display.js';
 import { installEscape, captureSave } from './overlay.js';
-import { Settings, FEATURES } from './settings.js';
+import { Settings } from './settings.js';
+import { dom } from './settings-panel.fixture.mjs';
 import { Timer, TICKS_PER_SEC } from './timer.js';
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
@@ -61,6 +62,8 @@ function menuWait(E) {
   E.files.write('INMAP-1.BAS', new Uint8Array([8, 9]));
   E.files.write('IN-1.BAS', new Uint8Array([1, 2, 3]));
   E.input.device(KEY.ESC); E.input.device(KEY.DOWN); E.input.device(KEY.ENTER); await sleep(10);
+  assert.notDeepEqual(E.files.saved('IN-1.BAS'), null, 'away from a starport: nothing written before Y');
+  E.input.device('N'); assert.ok(E.input.modal); E.input.device('S'); E.input.device('Y'); await sleep(10);
   assert.deepEqual((await E.files.bload('CHARINFO.BAS')).body, point.body);
   assert.equal(E.files.saved('IN-1.BAS'), null);
   assert.deepEqual(E.files.saved('INMAP-1.BAS'), new Uint8Array([5, 6]));
@@ -69,12 +72,27 @@ function menuWait(E) {
 {
   const E = await fixture('SPACE'), before = await E.files.read('CHARINFO.BAS');
   E.state.G[2200] += 42;
-  E.input.device(KEY.ESC); E.input.device('S'); await sleep(10);
+  E.input.device(KEY.ESC); E.input.device('S'); E.input.device('Y'); await sleep(10);
   assert.deepEqual(await E.files.read('CHARINFO.BAS'), before);
 }
 {
   const E = await fixture(); E.input.device(KEY.ESC); E.input.device('Q');
   assert.equal(E.files.saved('CHARINFO.BAS'), null);
+}
+{
+  let closed = 0, reloads = 0; globalThis.window = { close: () => closed++ }; globalThis.location = { search: '', reload: () => reloads++ };
+  const E = await fixture(); E.state.G[2200] += 1;
+  E.input.device(KEY.ESC); E.input.device('Q'); E.input.device('N'); assert.equal(closed, 0); assert.ok(E.input.modal);
+  E.input.device('Q'); E.input.device(KEY.ESC); assert.equal(closed, 0); assert.ok(E.input.modal);
+  E.input.device('Q'); E.input.device('Y'); assert.equal(closed, 1);
+  await sleep(350); E.input.device(KEY.ENTER); assert.equal(reloads, 1);
+  const F = await fixture('STARCOMM'); F.input.device(KEY.ESC); F.input.device('Q'); assert.equal(closed, 2);
+  const G = await fixture(); G.state.save(); G.input.device(KEY.ESC); G.input.device('Q'); assert.equal(closed, 3);
+  const H = await fixture(); H.files.storage = { getItem: () => null, setItem() { throw Error('quota'); }, removeItem() {} };
+  menuWait(H); H.state.G[2200] += 1;
+  H.input.device(KEY.ESC); H.input.device('S'); await sleep(10);
+  assert.equal(closed, 3, 'failed save does not quit'); assert.ok(H.input.modal); assert.ok(H.files.writeError);
+  delete globalThis.window; delete globalThis.location;
 }
 {
   const E = await fixture();
@@ -116,25 +134,21 @@ for (const reachedMenu of [false, true]) {
 {
   const memory = new Map(), storage = { getItem: k => memory.get(k), setItem: (k,v) => memory.set(k,v) };
   const settings = new Settings({storage});
+  const { doc } = dom(); globalThis.document = doc;
   const F = await fixture('STARPORT', settings);
   assert.equal(F.options.protection, false);
   F.input.device(KEY.ESC); F.input.device('T');
-  F.input.device(KEY.DOWN); F.input.device(KEY.SPACE);
+  assert.equal(F.input.modal, null); assert.equal(F.settingsPanel.isOpen(), true);
+  const panel = doc.getElementById('settings-panel'), mouse = panel.find(n => n.name === 'mouse');
+  mouse.checked = false; mouse.fire('change');
   assert.equal(settings.on('mouse'), false);
   assert.equal(new Settings({storage}).on('mouse'), false);
-  F.input.device(KEY.DOWN); F.input.device(KEY.ENTER);
+  const challenge = panel.find(n => n.name === 'noChallenge'); challenge.checked = false; challenge.fire('change');
   assert.equal(F.options.protection, true);
-  F.input.device(KEY.UP); F.input.device(KEY.UP); F.input.device(KEY.ENTER);
-  assert.equal(settings.classic, true);
-  for (const name of Object.keys(FEATURES)) assert.equal(settings.on(name), false);
-  F.input.device(KEY.DOWN); F.input.device(KEY.ENTER);
-  F.input.device(KEY.UP); F.input.device(KEY.ENTER);
-  assert.equal(settings.on('mouse'), false, 'Classic preserves preferences');
-  F.input.device('B'); assert.ok(F.input.modal);
-  F.input.device('R'); assert.equal(F.input.modal, null);
+  F.settingsPanel.close(); assert.equal(F.input.modal, null);
   F.input.device(KEY.ESC); F.input.modal.click(40,125);
-  F.input.modal.click(20,22); assert.equal(settings.classic,true);
-  F.input.device(KEY.ESC); assert.ok(F.input.modal); F.input.device(KEY.ESC);
+  mouse.checked = true; mouse.fire('change'); assert.equal(settings.on('mouse'), true);
+  F.settingsPanel.close(); delete globalThis.document;
   const {attachPointer} = await import('./pointer.js');
   const listeners = {}, canvas = {style:{}, addEventListener:(n,f)=>listeners[n]=f,
     getBoundingClientRect:()=>({left:0,top:0,width:640,height:400})};
@@ -143,8 +157,6 @@ for (const reachedMenu of [false, true]) {
   assert.deepEqual(pointerE.pointer.regions(),[]);
   listeners.click({button:0}); listeners.mousemove({});
   assert.equal(canvas.style.cursor,'default');
-  const forced = new Settings({classic:true, storage}); forced.set('classic',false);
-  assert.equal(forced.classic,true);
   const blocked = new Settings({storage:{getItem(){throw Error();},setItem(){throw Error();}}});
   blocked.set('mouse',false); assert.equal(blocked.on('mouse'),false);
 }
@@ -242,17 +254,18 @@ if (process.argv.includes('--settings-shots')) {
     const evaluate=async expression=>{const r=await send('Runtime.evaluate',{expression,returnByValue:true});assert.ok(!r.exceptionDetails,JSON.stringify(r.exceptionDetails));return r.result.value;};
     await send('Emulation.setDeviceMetricsOverride',{width:640,height:400,deviceScaleFactor:1,mobile:false});
     mkdirSync('acceptance/out/v1.3',{recursive:true});
-    for(const classic of [false,true]) {
-      await send('Page.navigate',{url:'http://127.0.0.1:8097/index.html?screen=PT-02'+(classic?'&classic=1':'')});
+    {
+      await send('Page.navigate',{url:'http://127.0.0.1:8097/index.html?screen=PT-02'});
       await sleep(2500);
       assert.equal(await evaluate("document.querySelector('#msg').textContent"),'');
       await evaluate("window.__before=Array.from(E.fb.pix); E.input.onDeviceEscape(); E.input.modal.key('T'); E.display.present(true)");
       const shot=await send('Page.captureScreenshot',{format:'png'});
-      writeFileSync(`acceptance/out/v1.3/settings-${classic?'classic':'on'}.png`,Buffer.from(shot.data,'base64'));
+      writeFileSync('acceptance/out/v1.3/settings-on.png',Buffer.from(shot.data,'base64'));
       assert.equal(await evaluate('E.fb.pix.every((v,i)=>v===window.__before[i])'),true);
-      await evaluate("E.input.modal.key('A'); E.display.present(true)");
-      assert.equal(await evaluate('E.settings.classic'),true);
-      await evaluate("E.input.modal.key('B'); E.input.modal.key('R')");
+      await evaluate("document.querySelector('#settings-panel').dispatchEvent(new KeyboardEvent('keydown', { key:'a', bubbles:true })); E.display.present(true)");
+      assert.equal(await evaluate('Object.keys(E.settings.values).length'),0);
+      assert.equal(await evaluate('E.input.modal'), null);
+      await evaluate("document.querySelector('[aria-label=\"Close settings\"]').click()");
       assert.equal(await evaluate('E.fb.pix.every((v,i)=>v===window.__before[i])'),true);
     }
     console.log('settings browser shots and framebuffer invariance passed');

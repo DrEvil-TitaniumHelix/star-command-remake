@@ -1,6 +1,7 @@
 import { str$, cint as ecint, val as eval_, using } from '../../engine/basic.js';
 import { floatToMbf } from '../../engine/state.js';
 import { BANK_OFFSETS } from './banks.js';
+import { mark, held } from './hold.js';
 
 export const fr = Math.fround;
 export const cint = (x) => ecint(x);
@@ -29,6 +30,7 @@ export const spc = (n) => ' '.repeat(Math.max(0, cint(n)));
 
 export const SEMI = Symbol(';'), COMMA = Symbol(',');
 
+const PAUSE = { SPACE: 0x19D1, PLBATTLE: 0x2913 };
 class Chain { constructor(target) { this.target = target; } }
 class End { }
 
@@ -58,6 +60,9 @@ export class BasicRT {
     this.lastRnd = 0;
     this.lastYield = 0;
     this.spins = 0;
+    this.sub = [];
+    const ex = this.exec;
+    if (ex) this.exec = async (pc) => { this.sub.push(pc); try { return await ex.call(this, pc); } finally { this.sub.pop(); } };
   }
 
   async run(entry = 0x0040) {
@@ -82,7 +87,12 @@ export class BasicRT {
   forCount(v, lim, step) { return step === 0 ? 0 : Math.max(0, Math.floor((lim - v) / step) + 1); }
   forEnd(v, lim, step) { return v + this.forCount(v, lim, step) * step; }
   async delayLoop(count) {
-    if (this.E.timer?.delayLoop) { await this.E.timer.delayLoop(count); this.lastYield = this.nowMs(); return; }
+    const T = this.E.timer, p = PAUSE[this.E.currentModule];
+    if (T?.delayLoop) {
+      if (T.delaySeconds && (!p || this.sub.slice(-2).includes(p))) await held(this, T.delaySeconds(count) * 1000, () => T.delayLoop(count));
+      else await T.delayLoop(count);
+      this.lastYield = this.nowMs(); return;
+    }
     const perSec = this.G[86] > 0 ? this.G[86] : 1000;
     const ms = (count / perSec) * 1000;
     const until = this.nowMs() + ms;
@@ -99,8 +109,9 @@ export class BasicRT {
     }
     if (last === ';') { if (cur.length) T.print(cur, ';'); }
     else if (last !== ',') T.print(cur.length ? cur : '');
+    mark(this, items);
   }
-  printUsing(fmt, items, semi) { this.E.text.printUsing(fmt, items.length === 1 ? items[0] : items, semi ? ';' : undefined); }
+  printUsing(fmt, items, semi) { mark(this, [fmt]); this.E.text.printUsing(fmt, items.length === 1 ? items[0] : items, semi ? ';' : undefined); }
   locate(r, c, vis, start, stop) {
     this.E.text.locate(r == null ? undefined : cint(r), c == null ? undefined : cint(c));
     if (vis !== undefined) this.E.text.cursor?.(cint(vis) !== 0, start, stop);
@@ -186,7 +197,7 @@ export class BasicRT {
     return isStr ? s : val(s);
   }
 
-  inkey() { return this.E.input.inkey(); }
+  inkey() { const k = this.E.input.inkey(); if (k) this.msgAt = 0; return k; }
   timerNow() { return this.E.timer?.now ? this.E.timer.now() : this.nowMs() / 1000; }
   async play(s) {
     if (this.E.audio?.play) { await this.E.audio.play(s); return; }

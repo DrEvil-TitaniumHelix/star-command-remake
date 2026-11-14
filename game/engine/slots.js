@@ -1,4 +1,5 @@
 import { Files } from './files.js';
+import { charNameText } from './data.js';
 import { KEY } from './input.js';
 import { drawPanel, UI } from './ui.js';
 
@@ -35,8 +36,11 @@ export function forgetFile(files, name) {
 }
 export class Slots {
   constructor(E, {restart = () => E.escape.restart()} = {}) {
-    this.E=E; this.restart=restart; this.records=[];
-    try { const value=JSON.parse(E.files.storage?.getItem(STORE) ?? '[]');
+    this.E=E; this.restart=restart; this.records=[]; this.reload();
+  }
+  reload() {
+    const E=this.E; if(!E.files.storage) return;
+    try { const value=JSON.parse(E.files.storage.getItem(STORE) ?? '[]');
       if(Array.isArray(value)) this.records=value.map(r=>r.key ? {...JSON.parse(E.files.storage.getItem(r.key)),_key:r.key} : r).filter(r=>typeof r.name==='string' && r.files && typeof r.files==='object');
     } catch {   }
   }
@@ -50,7 +54,7 @@ export class Slots {
     for(const [n,value] of pending) if(value) result[n]=Array.from(await value);
     if(point) {
       result['CHARINFO.BAS']=Array.from(Files.makeBsave(point.body,point.header.seg,point.header.off));
-      result.CHARNAME=Array.from(Uint8Array.from(point.names.map(n=>`${n ?? ''},`).join('')+'\x1a',c=>c.charCodeAt(0)&255));
+      result.CHARNAME=Array.from(Uint8Array.from(charNameText(point.names)+'\x1a',c=>c.charCodeAt(0)&255));
       if(point.logbook) result.LOGBOOK=Array.from(point.logbook); else delete result.LOGBOOK;
     } else {
       for(const n of ['CHARINFO.BAS','CHARNAME']) result[n]=Array.from(await files.read(n));
@@ -60,6 +64,7 @@ export class Slots {
   async save(name, point, auto=false) {
     if(!this.enabled()) return false;
     name=validateSlotName(name,auto);
+    this.reload();
     const raw=await this.snapshot(point);
     const files=Object.fromEntries(Object.entries(raw).map(([n,b])=>[n,encode(Uint8Array.from(b))]));
     const record={name,auto,time:new Date().toISOString(),files};
@@ -88,6 +93,7 @@ export class Slots {
 
   async load(name) {
     if(!this.enabled()) return false;
+    this.reload();
     const record=this.records.find(r=>r.name===name); if(!record) throw Error('Slot not found');
     const decoded=new Map();
     for(const [n,bytes] of Object.entries(record.files)) {
@@ -119,11 +125,12 @@ export function installSlots(E) {
   function open(mode, done, title=false) {
     if(!slots.enabled()) return;
     if(title) titleShown=true;
+    slots.reload();
     page={mode,done,title,selected:0,name:'',editing:false,busy:false,error:''};
     E.input.modal={key,click};
   }
   const choices=()=>page.mode==='save' ? [{name:'New named slot'},...slots.list().filter(r=>!r.auto)] :
-    [...(page.title?[{name:'Continue current disk',disk:true}]:[]),...slots.list()];
+    [...(page.title?[{name:'Continue last save',disk:true}]:[]),...slots.list()];
   async function choose() {
     const p=page; if(!p||p.busy) return;
     const row=choices()[p.selected]; if(!row) return;
@@ -167,12 +174,14 @@ export function installSlots(E) {
     else {
       const start=Math.max(0,page.selected-10);
       lines=[page.mode==='save'?'Save & Quit: choose a slot':'Load: choose a slot',...choices().slice(start,start+12).map((r,i)=>({
-        text:`${start+i===page.selected?'>':' '}${r.name}${r.auto?' (auto)':''}`,color:start+i===page.selected?UI.key:UI.text})),
-        ...Array(Math.max(0,12-choices().slice(start,start+12).length)).fill(''),'Esc/B-Back'];
+        text:`${start+i===page.selected?'>':' '}${r.name}${r.auto&&r.time?` (${new Date(r.time).toLocaleString([],{month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'})})`:''}`,color:start+i===page.selected?UI.key:UI.text})),
+        ...Array(Math.max(0,12-choices().slice(start,start+12).length)).fill(''),`${page.mode==='save'?'Enter - Choose':'Enter - Load'}   Esc - Back`];
     }
     if(page.error) lines.push({text:page.error.slice(0,36),color:UI.key});
+    ctx.fillStyle=UI.bg;ctx.fillRect(0,0,640,400);
     drawPanel(ctx,E,16,16,lines,{width:36});
   });
+  globalThis.addEventListener?.('storage',e=>{if(e.key===STORE) slots.reload();});
   slots.dismiss=()=>{page=null;};
   slots.openLoad=(title=false)=>open('load',null,title);
   slots.openSave=done=>open('save',done);

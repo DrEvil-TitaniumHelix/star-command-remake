@@ -1,7 +1,9 @@
 import { drawPanel } from './ui.js';
 import { cornerButton } from './speed.js';
+import { KEY } from './input.js';
 
 const prefixes = { STARTUP: 'SU', STARCOMM: 'CM', STARPORT: 'PT', SPACE: 'SP', INSIDE: 'IN', SPBATTLE: 'SB', PLBATTLE: 'PB' };
+export const hasManual = E => !E.manual?.missing && Object.keys(E.manual?.data?.screens ?? {}).length > 0;
 export function manualLines(data, id) {
   const screen = data.screens[id];
   if (!screen) return ['Choose a screen from the manual index.'];
@@ -14,15 +16,23 @@ const wrap = lines => lines.flatMap(line => String(line).split(/\r?\n/).flatMap(
 export async function installManual(E, { url = 'assets/data/manual.json' } = {}) {
   if (E.manual) return E.manual;
   const response = await fetch(url).catch(() => null);
-  if (!response?.ok) {
+  const data = response?.ok ? await response.json().catch(() => null) : null;
+  if (!data?.screens || !Object.keys(data.screens).length) {
     console.warn(`Manual not available (${url}: ${response ? `HTTP ${response.status}` : 'no response'})`);
     E.manual = { data: null, missing: true, close() {}, open() {}, get isOpen() { return false; } };
     return E.manual;
   }
-  const data = await response.json();
   let active = false, id, offset = 0;
-  const enabled = () => E.settings?.on('manual') === true;
+  const enabled = () => hasManual(E) && E.settings?.on('manual') === true;
   const close = () => { active = false; };
+  const page = d => { offset = Math.min(Math.max(0, wrap(manualLines(data, id)).length - 30), Math.max(0, offset + 30 * d)); };
+  E.input.capture = k => {
+    if (!E.manual?.isOpen) return false;
+    if (k === KEY.ESC || k === KEY.ENTER) close();
+    else if ([KEY.PGUP, KEY.UP, KEY.LEFT].includes(k)) page(-1);
+    else if ([KEY.PGDN, KEY.DOWN, KEY.RIGHT, ' '].includes(k)) page(1);
+    return true;
+  };
   E.manual = { data, close, open(screenId) {
     if (!enabled() || E.input.modal) return;
     const prefix = prefixes[E.currentModule];
@@ -42,8 +52,8 @@ export async function installManual(E, { url = 'assets/data/manual.json' } = {})
       const option = doc.createElement('option'); option.value = key; option.textContent = `${key}: ${value.title}`; select.appendChild(option);
     }
     select.onchange = () => E.manual.open(select.value); controls.appendChild(select);
-    button('Previous page', () => { offset = Math.max(0, offset - 30); });
-    button('Next page', () => { offset = Math.min(Math.max(0, wrap(manualLines(data, id)).length - 30), offset + 30); });
+    button('Previous page', () => page(-1));
+    button('Next page', () => page(1));
     button('Close manual', close); doc.body.appendChild(controls);
     E.display.frameHooks.push(() => {
       const rect = E.display.canvas.getBoundingClientRect();
@@ -57,7 +67,7 @@ export async function installManual(E, { url = 'assets/data/manual.json' } = {})
     if (!enabled()) close();
     if (!E.manual.isOpen || E.input.modal) return;
     const lines = wrap(manualLines(data, id));
-    drawPanel(ctx, E, 8, 8, ['Manual (use navigation buttons)', ...lines.slice(offset, offset + 30), `${offset + 1}-${Math.min(offset + 30, lines.length)} / ${lines.length}`], { scale: 1, width: 76 });
+    drawPanel(ctx, E, 8, 8, ['Manual: Page Up/Down - page   Esc - close', ...lines.slice(offset, offset + 30), `${offset + 1}-${Math.min(offset + 30, lines.length)} / ${lines.length}`], { scale: 1, width: 76 });
   });
   return E.manual;
 }

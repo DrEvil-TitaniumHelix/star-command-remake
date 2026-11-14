@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
-import {crewStatus,shipStatus,battleReport,installPanels} from './panels.js';
+import {crewStatus,shipStatus,battleReport,installPanels,logLines} from './panels.js';
+import {dom} from './settings-panel.fixture.mjs';
 const G=new Float32Array(2601), strings={'CrewName$':['','Pilot','Comms','Ada'], 'WeaponName$':['Laser']};
 const saved=new Map(), flags={crewPanel:true,logBook:true};
 let rows=['Mission briefing: Find the station.'];
@@ -67,6 +68,21 @@ console.log('panels: crew, ammo, stamina, ship, journal deltas, checkpoint persi
  console.log('panels review regressions: identity swaps, new-game reset, framebuffer cache and per-battle reports pass');
 }
 
+{
+ const raw=[{kind:'credits',text:'Credits 16852.595703125 (+16852.595703125)'},
+  {kind:'battle',text:'Credits -9999.6; kills 1234; tonnage 1234567.5'},
+  {kind:'screen',text:'Mission 1234\nReward: 1,999.6 credits. Bonus +1e6; fuel 20.4/1000. Gravity .6; cost....1234.5'}];
+ const before=JSON.stringify(raw), d=dom(), store=new Map();
+ const engine={...E,settings:{on:()=>true},files:{saved:()=>null,write:(n,b)=>store.set(n,b)},display:{canvas:d.canvas,frameHooks:[]}};
+ const book=installPanels(engine);book.restore(raw);book.open();
+ const expected=['[credits] Credits 16,853 (+16,853)','[battle] Credits -10,000; kills 1,234; tonnage 1,234,568',
+  '[screen] Mission 1,234\nReward: 2,000 credits. Bonus +1,000,000; fuel 20/1,000. Gravity 1; cost....1,235'];
+ assert.deepEqual(logLines(raw),expected);
+ assert.equal(d.doc.getElementById('log-book').find(n=>n.tagName==='PRE').textContent,expected.join('\n\n'));
+ assert.equal(JSON.stringify(raw),before);assert.deepEqual(book.entries(),raw);assert.deepEqual(book.checkpoint(),raw);
+ book.persist();assert.deepEqual(JSON.parse(new TextDecoder().decode(store.get('LOGBOOK'))),raw);
+}
+
 if(process.argv.includes('--shots')) {
  const {spawn}=await import('node:child_process');const {mkdirSync,writeFileSync}=await import('node:fs');
  const port=12000+process.pid%10000,pause=ms=>new Promise(r=>setTimeout(r,ms));
@@ -99,12 +115,42 @@ if(process.argv.includes('--shots')) {
    writeFileSync(new URL(`${screen}-crew.png`,out),Buffer.from((await send('Page.captureScreenshot',{format:'png'})).result.data,'base64'));
    await evaluate('E.logbook.open()');await pause(100);
    writeFileSync(new URL(`${screen}-logbook.png`,out),Buffer.from((await send('Page.captureScreenshot',{format:'png'})).result.data,'base64'));
-   await evaluate("E.logbook.close();E.settings.set('classic',true)");await pause(100);
+   await evaluate("E.logbook.close();E.settings.set('crewPanel',false);E.settings.set('logBook',false)");await pause(100);
    assert.equal(await evaluate("document.getElementById('crew-status').hidden && document.getElementById('log-book-button').hidden"),true);
-   await evaluate("E.settings.set('classic',false)");
+   await evaluate("E.settings.set('crewPanel',true);E.settings.set('logBook',true)");
    await send('Emulation.setDeviceMetricsOverride',{width:640,height:400,deviceScaleFactor:1,mobile:false});await pause(100);
    assert.equal(await evaluate("document.getElementById('crew-status').hidden"),true,'no spare width hides crew panel');
    await send('Emulation.setDeviceMetricsOverride',{width:1100,height:700,deviceScaleFactor:1,mobile:false});await pause(100);
   }
  } finally{ws?.close();chrome.kill();}
+}
+{
+ const {crewLines}=await import('./panels.js'), {barPlace}=await import('./speed.js');
+ const g=new Float32Array(2601), names={'CrewName$':['','REX','PIL','SOA']};
+ g[1415]=20.4;g[1416]=30;g[1515]=20;g[1516]=20;g[1615]=12;g[1616]=12;g[1632]=1;g[800]=4;g[803]=6;
+ const e={state:{G:g,str:n=>names[n]??[]},currentModule:'SPACE',tooltips:{items:()=>[{group:'squad weapons',index:3,name:'Laser Rifle'}]}};
+ const space=crewLines(crewStatus(e));
+ assert.equal(space.length,3,'no filler rows for empty slots');
+ assert.equal(space[0],'P> REX · HP 20/30\nHand weapon');
+ assert.equal(space[2],'1> SOA · HP 12/12\nLaser Rifle\nAmmo 6 · reloads 0');
+ assert.ok(!space.join().match(/Weapon \d|Stamina|—/));
+ e.currentModule='PLBATTLE';names['CrewName$']=['','SOA'];g[1658]=40;
+ const ground=crewLines(crewStatus(e));
+ assert.ok(ground[0].startsWith('P> REX')&&ground[2].startsWith('1> SOA')&&!/Pilot|Communicator/.test(ground.join()),'real names on the ground');
+ assert.deepEqual(barPlace({left:320,right:960,bottom:820},{h:1000},20),{outside:true,left:320,top:840,row:true});
+ assert.equal(barPlace({left:200,right:840,bottom:410},{h:420},20).outside,true);
+ assert.equal(barPlace({left:0,right:640,bottom:410},{h:420},20).outside,false);
+ console.log('panels: crew labels P/C/1-6, real names and weapon names, no filler, corner bar outside the picture pass');
+}
+{
+ const {installManual}=await import('./manual.js'), {Input,KEY}=await import('./input.js');
+ const data={screens:{'SP-01':{title:'Space',pages:['1'],differences:[]}},pages:{'1':Array(80).fill('line').join('\n')},differences:[]};
+ const input=new Input(), e={input,currentModule:'SPACE',settings:{on:()=>true},display:{overlays:[],frameHooks:[]}};
+ let esc=0;input.onDeviceEscape=()=>esc++;
+ await installManual(e,{url:'data:application/json,'+encodeURIComponent(JSON.stringify(data))});
+ e.manual.open();assert.equal(e.manual.isOpen,true);
+ input.device('A');input.device(KEY.DOWN);assert.equal(input.inkey(),'','open manual swallows game keys');
+ input.device(KEY.ESC);assert.equal(e.manual.isOpen,false);assert.equal(esc,0,'Esc closes the manual, not the menu');
+ input.device('A');assert.equal(input.inkey(),'A','closed manual passes keys');
+ console.log('manual: keys go to the open manual only pass');
 }

@@ -19,10 +19,11 @@ export const SCRIPTS = {
   'SB-02d': [0, ['N', LEFT, LEFT, LEFT, LEFT, LEFT, UP, ENTER, 'N', UP, UP, UP, UP, UP, UP]],
   'SB-02dY': [0, ['N', LEFT, LEFT, LEFT, LEFT, LEFT, UP, ENTER, 'N', UP, UP, UP, UP, UP, UP, 'Y']],
   'SB-06': [ENC, ['N', 'B', 'B', 'B', 'B', 'E', 'E', 'F', ENTER, ...[...Array(3)].flatMap(() => ['N', 'E', 'E', 'E', 'E', 'E', 'E', 'F', ENTER])]],
+  'SB-06E': [ENC, ['N', 'B', 'B', 'B', 'B', 'E', 'E']],
 };
 
-const SEED = { 'SB-02d': 1, 'SB-02dY': 1, 'SB-04': 3, 'SB-07': 3, 'SB-09': 3 };
-const HOLD = { 'SB-04': { delay: /Sucessfull\/$/ }, 'SB-07': { chain: true }, 'SB-09': { idle: true } };
+const SEED = { 'SB-06E': 1, 'SB-02d': 1, 'SB-02dY': 1, 'SB-04': 3, 'SB-07': 3, 'SB-09': 3 };
+const HOLD = { 'SB-04': { delay: /Sucessfull\/$/ }, 'SB-07': { chain: true }, 'SB-09': { idle: true }, 'SB-06E': { idle: true } };
 
 export async function prepare(E, screen, gap = 3) {
   const id = Object.keys(SCRIPTS).find((k) => k.toUpperCase() === String(screen).toUpperCase());
@@ -81,6 +82,7 @@ export async function prepare(E, screen, gap = 3) {
   let idleSince = null;
   E.input.inkey = () => {
     const key = inkey();
+    if (id === 'SB-06E' && !keys.length && E.moduleInstance?.V && 'Hostile!' in E.moduleInstance.V) E.moduleInstance.V['Hostile!'] = 1;
     if (key !== '' || (!keys.length && !hold?.idle)) { idleSince = null; return key; }
     const t = E.timer.now();
     if (idleSince === null) idleSince = t;

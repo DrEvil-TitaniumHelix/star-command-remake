@@ -13,11 +13,12 @@ function storage() {
   const m=new Map(); return {get length(){return m.size;}, key:i=>[...m.keys()][i],
     getItem:k=>m.get(k)??null,setItem:(k,v)=>m.set(k,v),removeItem:k=>m.delete(k)};
 }
-async function fixture(disk=storage(),classic=false) {
+async function fixture(disk=storage(),enabled=true) {
   const files=new Files({baseDir:new URL('../assets/files/',import.meta.url).pathname.replace(/^\/([A-Z]:)/i,'$1'),storage:disk});
   const state=new State(files); await state.load();
-  const E={files,state,data:new Data(files),settings:new Settings({storage:disk,classic}),options:{},input:new Input(),
+  const E={files,state,data:new Data(files),settings:new Settings({storage:disk}),options:{},input:new Input(),
     currentModule:'SPACE',text:{screenText:()=>[]},fb:{dirty:false,cls(){}},display:{overlays:[],present(){}},chain(){}};
+  if(!enabled) E.settings.set('saveSlots',false);
   installEscape(E);return E;
 }
 {
@@ -63,7 +64,15 @@ async function fixture(disk=storage(),classic=false) {
   E.options.protection=true;assert.equal(E.options.protection,true);
   E.options.protection=false;assert.equal(E.options.protection,false);
   assert.equal(E.files.storage.getItem('starcommand:settings'),pref);
-  E.settings.set('classic',true);assert.equal(E.options.protection,false);
+  E.settings.set('noChallenge',false);assert.equal(E.options.protection,false);
+}
+{
+  const E=await fixture();await E.slots.save('Here');E.state.G[2200]+=1;
+  E.input.device(KEY.ESC);E.input.device('L');assert.equal(E.input.modal,E.escape.modal);
+  E.input.device('N');assert.equal(E.input.modal,E.escape.modal);
+  E.input.device('L');E.input.device('Y');assert.notEqual(E.input.modal,E.escape.modal);
+  const F=await fixture();F.currentModule='STARCOMM';F.input.device(KEY.ESC);F.input.device('L');
+  assert.notEqual(F.input.modal,F.escape.modal,'nothing to lose: no question');
 }
 {
   const E=await fixture();await E.slots.save('Title crew');
@@ -76,22 +85,22 @@ async function fixture(disk=storage(),classic=false) {
   assert.equal(E.input.modal,null);assert.equal(E.input.inkey(),'1','current disk bypasses picker once');
   E.currentModule='STARPORT'; E.currentModule='STARCOMM';
   E.input.push('1');E.input.inkey();E.input.device(KEY.DOWN);
-  let restarts=0;E.slots.restart=()=>restarts++;
+  let restarts=0;const r0=E.slots.restart;E.slots.restart=()=>{restarts++;r0();};
   E.input.device(KEY.ENTER);await pause(5);assert.equal(restarts,1);
-  E.currentModule='STARCOMM'; E.input.push('1');
+  assert.throws(()=>E.input.inkey(),/CHAIN STARCOMM/);E.currentModule='STARCOMM'; E.input.push('1');
   assert.equal(E.input.inkey(),'1','loaded title advances without a second picker');
   E.currentModule='STARPORT'; E.currentModule='STARCOMM'; E.input.push('1');
   assert.equal(E.input.inkey(),'','a later title visit can show the picker again');
 }
 {
   const E=await fixture();
-  E.input.device(KEY.ESC);E.input.device('S');assert.ok(E.input.modal);
+  E.input.device(KEY.ESC);E.input.device('S');E.input.device('Y');assert.ok(E.input.modal);
   E.input.device(KEY.ENTER);for(const c of 'My crew') E.input.device(c);
   E.input.device(KEY.ENTER);await pause(30);
   assert.equal(E.slots.list()[0].name,'My crew');
 }
 {
-  const E=await fixture(undefined,true);
+  const E=await fixture(undefined,false);
   E.currentModule='STARPORT';assert.equal(E.slots.autosave,undefined);
   E.input.device(KEY.ESC);E.input.device('L');assert.equal(E.slots.list().length,0);
   E.input.device('S');await pause(10);assert.ok(E.files.saved('CHARINFO.BAS'));
@@ -109,6 +118,8 @@ async function fixture(disk=storage(),classic=false) {
   E.files.writeText('LOGBOOK','departure'); E.currentModule='STARPORT'; E.chain('SPACE');
   E.currentModule='SPACE'; E.files.writeText('LOGBOOK','combat after departure');
   E.input.device(KEY.ESC);E.input.device('S');await pause(10);
+  assert.equal(await E.files.readText('LOGBOOK'),'combat after departure','away from a starport: asks first');
+  E.input.device('Y');await pause(10);
   assert.equal(await E.files.readText('LOGBOOK'),'departure','journal rolls back with COMMON');
 }
 {
@@ -169,7 +180,7 @@ for(const name of ['', 'Autosave']) {
   const previous=migrated.list();await assert.rejects(migrated.save('Quota'),/Storage full; free space and retry/);
   assert.deepEqual(migrated.list(),previous,'quota failure keeps old slots');
 }
-console.log('slots: complete disk snapshots, persistence, overwrite, autosave, title, Esc, Classic, protection and prepared saves passed');
+console.log('slots: complete disk snapshots, persistence, overwrite, autosave, title, Esc, protection and prepared saves passed');
 
 if (process.argv.includes('--shots')) {
   const {spawn} = await import('node:child_process');
@@ -233,4 +244,25 @@ if (process.argv.includes('--shots')) {
     assert.equal(await evaluate('!!E.input.modal'),false);
     console.log('slots browser pickers, framebuffer invariance, title interception and STARCOMM restart passed');
   } finally {ws?.close();chrome.kill();server.kill();}
+}
+{
+  const disk=storage(), A=await fixture(disk), B=await fixture(disk);
+  await A.slots.save('From A'); await B.slots.save('From B'); await A.slots.save('A again');
+  assert.deepEqual(new Slots(await fixture(disk)).list().map(r=>r.name).sort(),['A again','From A','From B'],'two windows keep each other\'s slots');
+  await A.slots.load('From B');
+}
+{
+  const {charNameText,InputReader}=await import('./data.js');
+  const names=['"Bad, ship','A,B','C"','D','E','F','G','H','I'], r=new InputReader(Uint8Array.from(charNameText(names)+'\x1a',c=>c.charCodeAt(0)));
+  assert.deepEqual(Array.from({length:9},()=>r.str()),['Bad ship','AB','C','D','E','F','G','H','I']);
+  const E=await fixture(); E.files.write('CHARNAME',Uint8Array.from('"open,quote,\x1a',c=>c.charCodeAt(0)));
+  assert.equal((await E.data.charName()).length,9,'a damaged name file still loads');
+}
+{
+  const disk=storage(), E=await fixture(disk), shipped=await E.files.read('IN-1.BAS');
+  E.files.write('IN-1.BAS',new Uint8Array([7,7])); E.files.forget(n=>/^IN(?:MAP)?-\d+\.BAS$/.test(n));
+  assert.deepEqual(await E.files.read('IN-1.BAS'),shipped,'new game sees fresh stations');
+  assert.ok(disk.getItem('starcommand:file:IN-1.BAS'),'old campaign kept until the new one is saved');
+  E.files.write('CHARINFO.BAS',await E.files.read('CHARINFO.BAS'));
+  assert.equal(disk.getItem('starcommand:file:IN-1.BAS'),null);
 }

@@ -31,8 +31,7 @@ export function installMarker(E) {
   E.display.overlays.push(ctx => {
     const cells = E.missionMarker.cells();
     if (!cells.length) return;
-    const v = E.display.view ?? { scale: 1, ox: 0, oy: 0 };
-    ctx.save(); ctx.scale(v.scale, v.scale); ctx.translate(-v.ox * 2, -v.oy * 2);
+    ctx.save();
     ctx.strokeStyle = '#ffff55'; ctx.lineWidth = 1;
     for (const p of cells) ctx.strokeRect(p.x * 2 + 1, p.y * 2 + 1, p.size * 2 - 2, p.size * 2 - 2);
     ctx.restore();

@@ -1,21 +1,31 @@
-const supported = new Set(['SPACE', 'INSIDE', 'PLBATTLE']);
+import {cornerButton} from './speed.js';
+const supported = new Set(['SPACE', 'INSIDE', 'PLBATTLE', 'SPBATTLE']);
+const whole = new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 });
+export const logLines = entries => entries.map(e => `[${e.kind}] ${e.text.replace(/[+-]?(?:\d+(?:,\d{3})*(?:\.\d+)?|(?<![\w.])\.\d+)(?:e[+-]?\d+)?/gi,
+  n => (n[0] === '+' ? '+' : '') + whole.format(Number(n.replaceAll(',', ''))))}`);
 export function crewStatus(E) {
   const G = E.state.G, names = E.state.str('CrewName$');
   const shifted = ['PLBATTLE','INSIDE'].includes(E.currentModule);
+  if (!shifted && names.slice(1,9).some(n => n)) E.crewNames = names.slice();
+  const weapons = typeof E.moduleInstance?.A==='function' ? E.moduleInstance.A('WeaponName$') : E.state.str('WeaponName$');
+  const items = E.tooltips?.items?.()?.filter(i => i.group==='squad weapons');
   return Array.from({length:8}, (_, i) => {
     const m = i+1, b = 1300+100*m, slot = Math.trunc(G[b+32]);
     const rec = 788+12*slot, type = slot > 0 ? Math.trunc(G[rec]) : 0;
     let reloads = 0;
     for (let a=1100;a<=1397;a+=3) if (type && G[a]===type && G[a+2]===m) reloads++;
-    const weapons = typeof E.moduleInstance?.A==='function' ? E.moduleInstance.A('WeaponName$') : E.state.str('WeaponName$');
-    return {member:m, name: (shifted && m>2 ? names[m-2] : shifted ? ['Pilot','Communicator'][i] : names[m]) || `Crew ${m}`,
+    return {member:m, label: m===1 ? 'P' : m===2 ? 'C' : String(m-2),
+      name: (shifted ? (m>2 ? names[m-2] : E.crewNames?.[m]) : names[m]) || '',
       hp:G[b+15], maxHP:G[b+16], status:G[b+31],
       stamina:E.currentModule==='PLBATTLE' && m>2 ? G[b+58] : null,
-      weapon:slot>0 ? (weapons?.[type-1] || `Weapon ${type}`) : 'Hand weapon',
+      weapon:slot>0 ? (weapons?.[type-1] || items?.find(it => it.index===type-1)?.name || '') : 'Hand weapon',
       ammo:slot>0 ? G[rec+3] : null, reloads,
       medal:G[b+59]};
   });
 }
+export const crewLines = crew => crew.filter(c => c.name).map(c => [`${c.label}> ${c.name} · HP ${Math.round(c.hp)}/${Math.round(c.maxHP)}`,
+  [c.stamina!==null && `Stamina ${Math.round(c.stamina)}`, c.weapon].filter(Boolean).join(' · '),
+  c.ammo!==null && c.weapon && c.weapon!=='Hand weapon' ? `Ammo ${Math.round(c.ammo)} · reloads ${c.reloads}` : ''].filter(Boolean).join('\n'));
 export function shipStatus(E) {
   const G=E.state.G;
   const labels=['Engine','Retros','Life support','Power','Communications','Computer','Tow link',
@@ -79,8 +89,8 @@ export function installPanels(E) {
     if (previous) {
       if(now.credits!==previous.credits)add('credits',`Credits ${now.credits} (${now.credits-previous.credits>=0?'+':''}${now.credits-previous.credits})`);
       const unmatched=previous.crew.slice();
-      const identity=c=>(['INSIDE','PLBATTLE'].includes(mod) && c.member<=2)?`role:${c.member}`:`name:${c.name}`;
-      const previousIdentity=c=>(['INSIDE','PLBATTLE'].includes(lastModule) && c.member<=2)?`role:${c.member}`:`name:${c.name}`;
+      const identity=c=>(['INSIDE','PLBATTLE'].includes(mod) && c.member<=2)?`role:${c.member}`:`name:${c.name||c.label}`;
+      const previousIdentity=c=>(['INSIDE','PLBATTLE'].includes(lastModule) && c.member<=2)?`role:${c.member}`:`name:${c.name||c.label}`;
       now.crew.forEach(c=>{
         const candidates=unmatched.filter(old=>previousIdentity(old)===identity(c));
         const prior=candidates.find(old=>old.status===c.status) ?? candidates[0];
@@ -116,18 +126,15 @@ export function installPanels(E) {
     const key=inkey();if(key)observe();return key;
   };}
   const doc=E.display.canvas?.ownerDocument;
-  let panel,journal,button,body,hovered=false;
-  function renderLog(){if(body)body.textContent=entries.map(e=>`[${e.kind}] ${e.text}`).join('\n\n') || 'No entries yet.';}
+  let panel,journal,button,body;
+  function renderLog(){if(body)body.textContent=logLines(entries).join('\n\n') || 'No entries yet.';}
   if(doc?.body){
     panel=doc.createElement('aside');panel.id='crew-status';panel.hidden=true;panel.setAttribute('aria-label','Crew status');
     journal=doc.createElement('section');journal.id='log-book';journal.hidden=true;
     const close=doc.createElement('button');close.textContent='Close log book';close.onclick=()=>E.logbook.close();
     body=doc.createElement('pre');journal.append(close,body);
-    button=doc.createElement('button');button.id='log-book-button';button.hidden=true;button.textContent='Log book';button.onclick=()=>E.logbook.open();
-    E.display.canvas.addEventListener('mouseenter',()=>{hovered=true;});
-    E.display.canvas.addEventListener('mouseleave',event=>{hovered=event.relatedTarget===button;});
-    button.addEventListener('mouseleave',event=>{hovered=event.relatedTarget===E.display.canvas;});
-    doc.body.append(panel,journal,button);
+    doc.body.append(panel,journal);
+    button=cornerButton(E,'Log book',110,()=>enabled('logBook'),()=>E.logbook.open());button.id='log-book-button';
   }
   E.display.frameHooks.push(()=>{
     observe();if(!panel)return;
@@ -136,14 +143,12 @@ export function installPanels(E) {
     const visible=enabled('crewPanel') && supported.has(E.currentModule) && room>=300;
     panel.hidden=!visible;
     if(visible){
-      const width=Math.min(360,room-24);E.display.canvas.style.transform=`translateX(${-width/2}px)`;
+      const width=Math.min(360,Math.max(200,room/2-24));E.display.canvas.style.transform=`translateX(${-Math.max(0,width+24-room/2)}px)`;
       const r=E.display.canvas.getBoundingClientRect();
       Object.assign(panel.style,{left:`${r.right+12}px`,top:`${r.top}px`,width:`${width-12}px`,maxHeight:`${rect.height}px`});
-      panel.textContent='Crew status\n\n'+crewStatus(E).map(c=>`${c.member}. ${c.name} · HP ${c.hp}/${c.maxHP}\nStamina ${c.stamina??'—'} · ${c.weapon}\nAmmo ${c.ammo??'—'} / reloads ${c.reloads}`).join('\n\n')+
-        (E.currentModule==='SPACE'?'\n\nShip status\n'+shipStatus(E).join('\n'):'');
+      panel.textContent='Crew status\n\n'+crewLines(crewStatus(E)).join('\n\n')+
+        (['SPACE','SPBATTLE'].includes(E.currentModule)?'\n\nShip status\n'+shipStatus(E).join('\n'):'');
     }else E.display.canvas.style.transform='';
-    button.hidden=!enabled('logBook') || !!E.input.modal || !hovered;
-    Object.assign(button.style,{left:`${E.display.canvas.getBoundingClientRect().left+4}px`,top:`${rect.bottom-26}px`});
     if(!enabled('logBook') || E.input.modal)journal.hidden=true;
     if(!journal.hidden)renderLog();
   });

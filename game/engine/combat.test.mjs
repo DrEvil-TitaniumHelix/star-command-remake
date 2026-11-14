@@ -4,7 +4,7 @@ assert.equal(reachBand(1.6999,10),2);
 assert.equal(reachBand(1.7,10),1);
 assert.equal(reachBand(2.7,10),0);
 const arrays={'GrpX!':[26,0,0,0,0,26],'GrpY!':[5,0,0,0,0,5],'GrpSize!':[1],'GrpName$':['Test'],'UnitHP!':[10],'UnitArmor!':[2],'UnitWeapon!':[0],'GrpMeleeRange!':[10],'GrpTactic!':[1],'GrpToHitMod!':[0],'Map%':Array(81).fill(1)};
-const E={currentModule:'PLBATTLE',moduleInstance:{V:{'K!':1,'MemberCmd!':1,'TgtGrp!':0,'Unit!':0,'NGroups!':1},A:n=>arrays[n]??[]},state:{G:new Float32Array(2601)},text:{screenText:()=>['Groups In Range: A','Command: Attack']},settings:{on:()=>true},input:{},display:{overlays:[],view:{scale:1,ox:0,oy:0},viewToLogical:(x,y)=>({x,y})}};
+const E={currentModule:'PLBATTLE',moduleInstance:{V:{'K!':1,'MemberCmd!':1,'TgtGrp!':0,'Unit!':0,'NGroups!':1},A:n=>arrays[n]??[]},state:{G:new Float32Array(2601)},text:{screenText:()=>['Groups In Range: A','Command: Attack']},settings:{on:()=>true},input:{},display:{overlays:[],viewToLogical:(x,y)=>({x,y})}};
 E.state.G[1600+45]=3;
 const before=JSON.stringify({arrays,V:E.moduleInstance.V,G:[...E.state.G]});
 let p=preview(E);
@@ -42,6 +42,13 @@ E.display.overlays[0](ctx);
 assert.equal(JSON.stringify({arrays,V:E.moduleInstance.V,G:[...E.state.G]}),snapshot);
 E.settings.on=()=>false;
 E.display.overlays[0](new Proxy({},{get:()=>()=>{throw Error('disabled overlay drew');}}));
+E.currentModule='PLBATTLE';E.moduleInstance={V:{'NGroups!':1},A:n=>({...arrays,'UnitHP!':[25.73],'UnitArmor!':[2.4]})[n]??[]};E.input.lastDevice='mouse';E.settings.on=()=>true;
+E.text.screenText=()=>['Groups In Range: A','Command: Attack'];E.fb.version++;
+const gtip=E.combat.at(112,16);assert.ok(gtip.includes('Armor: 2')&&gtip.includes('Standing: 1 of 1')&&!/Tactic|HP:|\d\.\d/.test(gtip.join()),'ground tooltip: player words, whole numbers');
+E.currentModule='SPBATTLE';E.moduleInstance={V:{'NumEnemy!':1,'ViewMode!':1,'EnTactic!':3},A:n=>({'EnX!':[20],'EnY!':[10],'Hull!':[4.6],'EnArmor!':[20.2],'WeaponDmg!':[55.34]})[n]??[]};E.fb.version++;
+const stip=E.combat.at(77,74);assert.deepEqual(stip,['Enemy ship A','Hull: 5','Armor: 20','Keeps to range: 10']);
+let letters=0;const lctx=new Proxy({},{get:(o,k)=>k==='fillRect'?()=>letters++:o[k]??(()=>{}),set:(o,k,v)=>(o[k]=v,true)});E.text.glyphs=[];E.combat.togglePreview();
+E.display.overlays[0](lctx);assert.ok(letters>0,'ship letter drawn on the space battle visual');
 console.log('combat boundary, expectations, gating, sprite recognition and read-only tests pass');
 
 if (process.argv.includes('--shots')) {

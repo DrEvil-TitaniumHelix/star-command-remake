@@ -42,8 +42,8 @@ export class Text {
   }
 
   drawCursor(ctx, rgb) {
-    if (this.fb.mode === 1 || this.fb.mode === 7) return;
-    if (!this.cursorOn || this.col > COLS || (Math.floor(performance.now() / 267) & 1)) return;
+    if ((this.fb.mode === 1 || this.fb.mode === 7) && !this.typing) return;
+    if (!(this.cursorOn || this.typing) || this.col > COLS || (Math.floor(performance.now() / 267) & 1)) return;
     const a = this.cursorStart ?? 7, b = Math.max(a, this.cursorStop ?? 7);
     ctx.fillStyle = `rgb(${rgb.join(',')})`;
     ctx.fillRect(16 * (this.col - 1), 16 * (this.row - 1) + 2 * a, 16, 2 * (b - a + 1));

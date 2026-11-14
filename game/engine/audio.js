@@ -3,7 +3,8 @@ const BUFFER = 32;
 const GAIN = 0.06;
 
 export class Audio {
-  constructor() {
+  constructor(settings) {
+    this.settings = settings;
     this.ctx = null;
     this.muted = false;
     this.items = [];
@@ -33,15 +34,20 @@ export class Audio {
 
   queue() { this.prune(); return this.items.length; }
 
-  enqueue(freq, dur, on = dur) {
+  allow(kind) { return !this.muted && this.settings?.hear?.(kind) !== false; }
+
+  silence() { for (const o of this.osc) if (!this.allow(o.kind)) { try { o.stop(); } catch {   } } }
+
+  enqueue(freq, dur, on = dur, kind = 'effects') {
     const now = this.clock();
     const start = Math.max(now, this.tail), end = start + dur * 1000;
     this.items.push({ start, end });
     this.tail = end;
     const ctx = this.ctx;
-    if (freq > 0 && on > 0 && !this.muted && ctx && ctx.state === 'running') {
+    if (freq > 0 && on > 0 && this.allow(kind) && ctx && ctx.state === 'running') {
       const t0 = ctx.currentTime + (start - now) / 1000;
       const o = ctx.createOscillator(), g = ctx.createGain();
+      o.kind = kind;
       o.type = 'square';
       o.frequency.value = freq;
       g.gain.value = GAIN;
@@ -72,7 +78,7 @@ export class Audio {
     const tone = (n, len, d) => {
       const secs = this.noteSecs(len, d);
       if (n <= 0) this.enqueue(0, secs);
-      else this.enqueue(this.noteFreq(n), secs, secs * this.art);
+      else this.enqueue(this.noteFreq(n), secs, secs * this.art, 'music');
     };
     while (i < s.length) {
       const c = s[i++];

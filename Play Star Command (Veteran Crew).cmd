@@ -1,10 +1,12 @@
 @echo off
-set ROOT=%~dp0
-set PORT=8088
-set PY=python
-netstat -ano | findstr /r /c:":%PORT% .*LISTENING" >nul 2>&1
-if errorlevel 1 (
-  start "Star Command server" /min "%PY%" -I "%ROOT%tools\serve.py" %PORT%
-  timeout /t 2 /nobreak >nul
-)
-start "" "C:\Program Files\Google\Chrome\Application\chrome.exe" --app="http://127.0.0.1:%PORT%/index.html?save=veteran&force=1" --start-fullscreen
+setlocal
+set "PY="
+for /f "delims=" %%P in ('where python.exe 2^>nul ^| findstr /i /v /l /c:"\Microsoft\WindowsApps"') do if not defined PY set "PY=%%P"
+if not defined PY goto fallback
+"%PY%" -I -c "import sys; sys.exit(sys.version_info.major != 3)" >nul 2>&1
+if errorlevel 1 goto fallback
+"%PY%" -I "%~dp0tools\serve.py" --veteran %*
+exit /b %errorlevel%
+:fallback
+powershell -NoProfile -ExecutionPolicy Bypass -File "%~dp0tools\serve.ps1" --veteran %*
+exit /b %errorlevel%

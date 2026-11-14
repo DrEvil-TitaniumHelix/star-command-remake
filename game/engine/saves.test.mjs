@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
-import { Files } from './files.js';
+import { Files, memStorage } from './files.js';
 import { State } from './state.js';
 import { Data } from './data.js';
 import { applySaveParam } from './saves.js';
@@ -45,6 +45,33 @@ await t('?save=veteran keeps an existing player save; &force=1 replaces it and f
   assert.equal(r.applied, true); assert.equal(done.force, true);
   assert.deepEqual([...files.saved('CHARINFO.BAS')], [...disk('veteran/CHARINFO.BAS')]);
   assert.equal(files.saved('IN-1.BAS'), null);
+});
+
+await t('&force=1 asks before replacing an existing save; N keeps it; no question when nothing exists', async () => {
+  const files = browserFiles();
+  let asked = 0;
+  const no = async () => { asked++; return false; }, yes = async () => { asked++; return true; };
+  assert.equal((await applySaveParam(files, q('save=veteran&force=1'), { fetchImpl, ask: no })).applied, true);
+  assert.equal(asked, 0);
+  files.write('CHARINFO.BAS', new Uint8Array([0xfd, 1, 2, 3]));
+  files.write('IN-1.BAS', new Uint8Array([9]));
+  assert.equal((await applySaveParam(files, q('save=veteran&force=1'), { fetchImpl, ask: no })).applied, false);
+  assert.deepEqual([...files.saved('CHARINFO.BAS')], [0xfd, 1, 2, 3]);
+  assert.deepEqual([...files.saved('IN-1.BAS')], [9]);
+  assert.equal((await applySaveParam(files, q('save=veteran&force=1'), { fetchImpl, ask: yes })).applied, true);
+  assert.equal(asked, 2);
+  assert.equal(files.saved('IN-1.BAS'), null);
+});
+
+await t('a jump-screen Files on memStorage never writes the real storage', async () => {
+  const real = new MemStorage();
+  Object.defineProperty(globalThis, 'localStorage', { configurable: true, value: real });
+  assert.equal(new Files().storage, real);
+  const jump = new Files({ storage: memStorage() });
+  jump.write('CHARINFO.BAS', new Uint8Array([0xfd])); jump.reset(); jump.write('CHARNAME', new Uint8Array([1]));
+  assert.equal(real.length, 0);
+  assert.equal(new Files({ storage: jump.storage }).saved('CHARNAME')[0], 1);
+  delete globalThis.localStorage;
 });
 
 await t('bad or missing save names are errors, no ?save is a no-op', async () => {

@@ -85,7 +85,7 @@ export async function setup(E, m, screen) {
     if (pc === fx.breakAfter) { window.__screenReady = true; await new Promise(() => {}); }
     return r;
   };
-  if (fx.stopChain && !globalThis.__keepChain) E.chain = (mod) => { window.__screenReady = true; return new Promise(() => {}); };
+  if (fx.stopChain && !globalThis.__keepChain) { const ch = E.chain; E.chain = async (mod) => { window.__screenReady = true; await E.timer.wait(3); return ch(mod); }; }
   const frame = m.frame.bind(m);
   m.frame = async () => { if (m.frozen) await new Promise(() => {}); return frame(); };
   const seq = keys(fx.keys ?? '');

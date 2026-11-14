@@ -46,6 +46,7 @@ export class Input {
     target.addEventListener('keydown', (e) => {
       const k = keyCode(e);
       if (k === null) return;
+      if (k === KEY.TAB && !this.modal && target.document?.getElementById?.('settings-panel')?.hidden === false) return;
       e.preventDefault();
       this.lastDevice = 'keyboard';
       this.device(k);
@@ -54,8 +55,9 @@ export class Input {
 
   device(k) {
     if (this.modal) { this.modal.key(k); return; }
+    if (this.capture?.(k)) return;
+    if (this.onDeviceHelp && (k === KEY.F1 || (k === KEY.ESC && this.onDeviceHelp.isOpen?.()))) { this.onDeviceHelp(); return; }
     if (k === KEY.ESC && this.onDeviceEscape) { this.onDeviceEscape(); return; }
-    if (k === KEY.F1 && this.onDeviceHelp) { this.onDeviceHelp(); return; }
     const hk = this.hotkeys.get(k);
     if (hk && (hk.enabled?.() ?? true)) { hk.run(); return; }
     this.push(k);
@@ -80,15 +82,18 @@ export class Input {
   async lineInput(text, prompt = '', maxLen = 255) {
     if (prompt) text.print(prompt, ';');
     let s = '';
-    for (;;) {
-      const k = await this.key();
-      if (k === KEY.ENTER) { text.print(''); return s; }
-      if (k === KEY.BACKSPACE) {
-        if (s.length) { s = s.slice(0, -1); text.col--; text.glyph(32); }
-        continue;
+    text.typing = true;
+    try {
+      for (;;) {
+        const k = await this.key();
+        if (k === KEY.ENTER) { text.typing = false; text.print(''); return s; }
+        if (k === KEY.BACKSPACE) {
+          if (s.length) { s = s.slice(0, -1); text.col--; text.glyph(32); }
+          continue;
+        }
+        if (k.length === 1 && k >= ' ' && s.length < maxLen) { s += k; text.write(k); }
       }
-      if (k.length === 1 && k >= ' ' && s.length < maxLen) { s += k; text.write(k); }
-    }
+    } finally { text.typing = false; }
   }
 
   setMenu(items, opts = {}) { this.menu = { items, arrows: !!opts.arrows }; this.menuSel = 0; }

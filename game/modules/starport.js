@@ -1,6 +1,7 @@
 import { flow } from './starport/flow.js';
 import { str$, val as bval, cint } from '../engine/basic.js';
 import { Files } from '../engine/files.js';
+import { mark, held } from './space/hold.js';
 
 export const screens = ['PT-00', 'PT-01', 'PT-01m', 'PT-02', 'PT-03', 'PT-04', 'PT-05', 'PT-06', 'PT-07', 'PT-08',
   'PT-09', 'PT-09w', 'PT-09a', 'PT-09b', 'PT-10', 'PT-11', 'PT-12', 'PT-13', 'PT-14', 'PT-15'];
@@ -107,8 +108,9 @@ class Runtime {
   TIMER() { this.idle = true; return this.timer.now(); }
   inkey() {
     if (this.script.length) return this.script.shift();
-    const k = this.E.input.inkey();
-    if (k === '') { this.idle = true; this.devIdle(); } else this.idleSince = null;
+    let k = this.E.input.inkey();
+    if (k === ',' || k === '"') k = '';
+    if (k === '') { this.idle = true; this.devIdle(); } else { this.idleSince = null; this.msgAt = 0; }
     return k;
   }
   devIdle() {
@@ -119,7 +121,7 @@ class Runtime {
   }
   async delayLoop(from, to) {
     const n = Math.max(0, Math.floor(to) - from + 1);
-    if (this.timer.delayLoop) { this.timer.stdDelay = this.G[GI.StdDelay] || 188; await this.timer.delayLoop(n); }
+    if (this.timer.delayLoop) { this.timer.stdDelay = this.G[GI.StdDelay] || 188; await held(this, this.timer.delaySeconds(n) * 1000, () => this.timer.delayLoop(n)); }
     else await this.wait(n * LOOP_FACTOR / (this.G[GI.StdDelay] || 188));
   }
 
@@ -141,7 +143,7 @@ class Runtime {
   locate(r, c  ) { this.E.text.locate(r, c); }
   pos() { return this.E.text.col; }
   csrlin() { return this.E.text.row; }
-  print(v) { this.E.text.print(v, ';'); }
+  print(v) { mark(this, [v]); this.E.text.print(v, ';'); }
   printZone() { this.E.text.print('', ','); }
   printEnd(semi) { if (!semi) this.E.text.print(''); }
   printUsing(fmt, v, semi) { this.E.text.print(using(fmt, v), ';'); this.printEnd(semi); }
@@ -167,7 +169,7 @@ class Runtime {
       case 0x40F4: this.buf.Logo = { bank: 'LOGO.BAS', index: 0 }; return;
       case 0x51F6:
         try { const { body } = await this.files.bload(name); this.INFO.set(fromMbf(body, 1262)); }
-        catch (e) { console.warn(`STARPORT: ${name} not available (${e.message}); prices/stats read as 0`); }
+        catch (e) { throw new Error(`Cannot find ${name}: ${e.message}`); }
         return;
       case 0x1850: await this.state.load('CHARINFO.BAS'); return;
       default: throw new Error(`BLOAD ${file} at unknown address ${addr.toString(16)}`);

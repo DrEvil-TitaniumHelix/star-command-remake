@@ -15,6 +15,12 @@ export class InsideRT extends BasicRT {
       get: (o, k) => (k in cv ? (store.has(cv[k]) ? store.get(cv[k]) : 0) : local[k]),
       set: (o, k, v) => { if (k in cv) store.set(cv[k], v); else local[k] = v; return true; },
     });
+    if (E.display?.overlays && !E.sqDraw) E.display.overlays.push(E.sqDraw = (ctx) => {
+      const k = E.sq; if (!k) return;
+      ctx.save();
+      for (const [c, w] of [['#000', 4], ['#ff55ff', 2]]) { ctx.strokeStyle = c; ctx.lineWidth = w; ctx.strokeRect(k[0] * 2 - 3, k[1] * 2 - 3, 16, 16); }
+      ctx.restore();
+    });
   }
 
   get fs() { return this.E.files ?? this.E.state?.files; }
@@ -70,7 +76,23 @@ export class InsideRT extends BasicRT {
     delete this.bufs[name];
   }
 
+  async frame() {
+    const k = this.mk; this.mk = null;
+    if (!k) return super.frame();
+    const b = this.E.settings?.on('squadMarker') === true && !!this.E.sqDraw, t = this.mkOn === b;
+    if (t) this.put0(...k);
+    if (b) this.E.sq = k;
+    await super.frame();
+    this.E.sq = null;
+    if (t) this.put0(...k);
+  }
+
   put(x, y, name, addr, verb) {
+    if (name === 'Tile42' && verb === 'XOR') { this.mkOn = !this.mkOn; this.mk = [x, y, name, addr, verb]; }
+    return this.put0(x, y, name, addr, verb);
+  }
+
+  put0(x, y, name, addr, verb) {
     if (addr === null || addr === undefined) addr = this.addrOf(name);
     const r = addr !== null && addr !== undefined ? this.regionAt(addr) : null;
     if (r && r.bytes && !r.pristine) return this.E.sprites.put(x, y, this.decodeCga(r, addr), verb);

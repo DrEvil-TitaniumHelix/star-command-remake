@@ -96,8 +96,22 @@ export function disjointRegions(regions) {
   }
   return out;
 }
-export function attachPointer(E,canvas) {
+export function attachPointer(E,canvas,win=typeof window!=='undefined'?window:null) {
   if(E.pointer) return E.pointer;
+  if(win) {
+    let armed=!win.document?.hasFocus?.(),gate=false,t=0,out=0,away=false;
+    const eat=e=>{e.preventDefault?.();e.stopImmediatePropagation?.();};
+    const hint=v=>{const h=win.document?.getElementById?.('click-hint');if(h)h.hidden=!v;};
+    const back=()=>{if(out&&Date.now()-out>=800){away=true;hint(true);}out=0;};
+    win.addEventListener('blur',()=>{clearTimeout(t);armed=true;});
+    win.addEventListener('focus',()=>{clearTimeout(t);t=setTimeout(()=>armed=false,300);});
+    win.addEventListener('mouseout',e=>{if(!e.relatedTarget&&!out)out=Date.now();},true);
+    win.addEventListener('mouseover',e=>{if(!e.relatedTarget)back();},true);
+    win.addEventListener('keydown',()=>{armed=away=false;out=out&&Date.now();hint(false);},true);
+    win.addEventListener('mousedown',e=>{back();gate=armed||away;armed=away=false;hint(false);if(gate)eat(e);},true);
+    for(const n of ['mouseup','click','auxclick','dblclick']) win.addEventListener(n,e=>{if(gate)eat(e);if(n==='click'||n==='auxclick')gate=false;},true);
+  }
+  canvas.addEventListener('contextmenu',e=>e.preventDefault());
   const drawn=new Map();
   const sample=r=>{
     const out=[];
@@ -121,7 +135,7 @@ export function attachPointer(E,canvas) {
     return result;
   };
   const regions=()=>{
-    if(E.input.modal) return [];
+    if(E.input.modal||E.manual?.isOpen) return [];
     const live=[...drawn.entries()].filter(([,r])=>!r.erased&&r.module===E.currentModule&&sample(r).every((p,i)=>p===r.pixels[i]));
     const arrows=live.filter(([id])=>ARROWS.has(id)).map(([,r])=>r);
     const markers=live.filter(([id])=>id==='SPACESH.BAS#16').map(([,r])=>r);
@@ -146,6 +160,7 @@ export function attachPointer(E,canvas) {
     if(E.settings?.on('mouse') === false) {canvas.style.cursor='default';return;}
     E.input.lastDevice='mouse';const {x,y}=point(e);
     if(E.input.modal) {E.input.modal.click(x,y);return;}
+    if(E.manual?.isOpen) {e.preventDefault();return;}
     const r=hit(x,y);if(r) {e.preventDefault();E.input.device(r.key);}
   });
   E.pointer={regions};

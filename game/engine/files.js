@@ -10,6 +10,12 @@ const b64 = {
   dec: (s) => Uint8Array.from(atob(s), (c) => c.charCodeAt(0)),
 };
 
+export const memStorage = () => {
+  const m = new Map();
+  return { get length() { return m.size; }, key: (i) => [...m.keys()][i] ?? null, getItem: (k) => m.get(k) ?? null,
+    setItem: (k, v) => { m.set(k, String(v)); }, removeItem: (k) => { m.delete(k); }, clear: () => m.clear() };
+};
+
 export class Files {
   constructor({ base = 'assets/files/', baseDir = null, storage = (typeof localStorage !== 'undefined' ? localStorage : null) } = {}) {
     this.base = base;
@@ -42,7 +48,16 @@ export class Files {
   write(name, bytes) {
     name = dosName(name);
     this.mem.set(name, bytes);
-    try { this.storage?.setItem(PREFIX + name, b64.enc(bytes)); } catch (e) { console.warn(`could not persist ${name}: ${e.message}`); }
+    try {
+      this.storage?.setItem(PREFIX + name, b64.enc(bytes));
+      if (name === 'CHARINFO.BAS') for (const [k, v] of this.mem) if (v === null) { this.mem.delete(k); this.storage?.removeItem(PREFIX + k); }
+    } catch (e) { console.warn(`could not persist ${name}: ${e.message}`); this.writeError = e; this.onWriteFail?.(e); }
+  }
+
+  forget(test) {
+    const names = new Set(this.mem.keys());
+    try { for (let i = 0; i < (this.storage?.length ?? 0); i++) { const k = this.storage.key(i); if (k?.startsWith(PREFIX)) names.add(k.slice(PREFIX.length)); } } catch {   }
+    for (const n of names) if (test(n)) this.mem.set(n, null);
   }
 
   async readText(name) { return new TextDecoder('latin1').decode(await this.read(name)); }

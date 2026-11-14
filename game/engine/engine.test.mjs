@@ -221,6 +221,11 @@ t('TIMER is quantised to BIOS ticks', () => {
   assert.ok(Math.abs(v * TICKS_PER_SEC - Math.round(v * TICKS_PER_SEC)) < 0.2);
 });
 
+t('TIMER keeps counting past midnight so delays end', () => {
+  const tm = new Timer(); let ms = 0; tm.clock = () => ms; tm.base = 86399;
+  const t0 = tm.now(); ms = 2000; assert.ok(tm.now() - t0 > 1.9);
+});
+
 t('CHAIN runner switches modules, state kept', () => {});
 {
   const log = [];

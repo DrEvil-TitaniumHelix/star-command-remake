@@ -13,7 +13,6 @@ import { attachPointer } from './pointer.js';
 import { installEscape } from './overlay.js';
 import { Settings } from './settings.js';
 import { installHelp } from './help.js';
-import { installZoom } from './zoom.js';
 import { installTooltips } from './tooltip.js';
 import { installCombat } from './combat.js';
 import { installSpeed } from './speed.js';
@@ -26,7 +25,7 @@ export async function loadJSON(url) {
   return r.json();
 }
 
-export async function boot(canvas, { assets = 'assets/', options = {} } = {}) {
+export async function boot(canvas, { assets = 'assets/', options = {}, storage } = {}) {
   const [atlas, font, gmap] = await Promise.all([
     Atlas.load(assets), loadJSON(`${assets}font8x8.json`), loadJSON(`${assets}gmap.json`)]);
   const fb = new Framebuffer(atlas.scale);
@@ -34,22 +33,19 @@ export async function boot(canvas, { assets = 'assets/', options = {} } = {}) {
   const input = new Input();
   input.attach(window);
   display.frameHooks.push((t) => input.pollGamepads(t));
-  display.overlays.push((ctx) => {
-    const v = display.view;
-    if (v.scale === 1) { input.overlay(ctx); return; }
-    ctx.save(); ctx.scale(v.scale, v.scale); ctx.translate(-v.ox * 2, -v.oy * 2); input.overlay(ctx); ctx.restore();
-  });
+  display.overlays.push((ctx) => input.overlay(ctx));
   const text = new Text(fb, font);
   input.text = text;
   display.overlays.push((ctx) => text.drawCursor(ctx, EGA_RGB[fb.attr2ega[text.fgAttr]]));
-  const files = new Files({ base: `${assets}files/` });
+  const files = new Files({ base: `${assets}files/`, storage });
   const E = {
     fb, display, gfx: new Gfx(fb), text, sprites: new Sprites(fb, atlas), atlas, input,
     files, state: new State(files, gmap), data: new Data(files, { base: `${assets}data/` }),
-    audio: new Audio(), timer: null, chain, options: { protection: false, ...options },
-    settings: new Settings({ classic: !!options.classic }),
+    timer: null, chain, options: { protection: false, ...options },
+    settings: new Settings(),
     assets,
   };
+  E.audio = new Audio(E.settings);
   E.timer = new Timer(() => E.state.G[86]);
   E.screen = (mode) => { fb.screen(mode); text.resetColors(); text.row = 1; text.col = 1; E.gfx.lastX = 160; E.gfx.lastY = 100; };
   display.screen = E.screen;
@@ -57,7 +53,6 @@ export async function boot(canvas, { assets = 'assets/', options = {} } = {}) {
   attachPointer(E, canvas);
   installEscape(E);
   installHelp(E);
-  installZoom(E, canvas);
   installTooltips(E, canvas);
   installCombat(E, canvas);
   installSpeed(E);

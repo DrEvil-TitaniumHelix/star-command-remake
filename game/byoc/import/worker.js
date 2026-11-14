@@ -1,13 +1,14 @@
-import { MANIFEST, RECIPE_VERSION, versionDir, writeFile, readFile, fileHandle } from './opfs.js';
+import { MANIFEST, RECIPE_VERSION, versionDir, stageImport, writeFile, readFile } from './opfs.js';
 import { validate } from './validate.js';
 import { unzip } from './zip.js';
 import { convertAll, STEPS } from '../convert/index.js';
 import { streamDeflate } from '../convert/atlas.js';
+import { saveRead } from '../convert/saves.js';
 
 const progress = (phase, done, total, label) => postMessage({ type: 'progress', phase, done, total, label });
 
-async function storedOriginals(dir) {
-  const out = [];
+async function storedOriginals() {
+  const dir = await versionDir(), out = [];
   for (const f of MANIFEST.list) {
     const bytes = await readFile(dir, `originals/${f.name}`);
     if (bytes) out.push({ name: f.name, bytes });
@@ -16,43 +17,39 @@ async function storedOriginals(dir) {
 }
 
 async function run(msg) {
-  let candidates;
-  const dir = await versionDir(true);
-  if (msg.cmd === 'reconvert') candidates = await storedOriginals(dir);
-  else candidates = msg.zip ? await unzip(msg.zip) : msg.files;
-
-  const v = await validate(MANIFEST, candidates, undefined, (i, n, name) => progress('check', i, n, `checking ${name}`));
+  const candidates = msg.cmd === 'reconvert' ? await storedOriginals() : msg.zip ? await unzip(msg.zip, MANIFEST) : msg.files;
+  const v = await validate(MANIFEST, candidates, undefined, (i, n) => progress('check', i, n, 'Checking your copy'));
   if (!v.ok) {
-    postMessage({ type: 'error', message: msg.cmd === 'reconvert' ? 'The stored copy no longer validates; please choose your STARCOMA folder again.' : 'This folder is not a complete copy of the known release.', problems: v.problems, notes: v.notes });
+    postMessage({ type: 'error', message: 'This is not a Star Command game folder. Choose the folder containing the game itself, and check that the copy is complete.', problems: v.problems.slice(0, 5).concat(v.problems.length > 5 ? [`And ${v.problems.length - 5} more files need attention.`] : []) });
     return;
   }
-  const old = await fileHandle(dir, 'done');
-  if (old) await dir.removeEntry('done');
-
-  if (msg.cmd !== 'reconvert') {
+  const json = async (u) => { const r = await fetch(new URL(u, import.meta.url)); if (!r.ok) throw new Error('The converter could not load. Please retry when the game server is available.'); return r.json(); };
+  const [gmap, cfg, ann] = await Promise.all([json('../../assets/gmap.json'), json('../modules.json'), json('../convert/annotations.json')]);
+  const read = (name) => v.files.get(name);
+  saveRead(read, gmap, msg.allowNewCrew);
+  const info = await stageImport(async (dir) => {
     let i = 0;
     for (const [name, bytes] of v.files) {
-      progress('store', i++, v.files.size, `storing ${name}`);
+      progress('store', i++, v.files.size, 'Keeping a local copy for future updates');
       await writeFile(dir, `originals/${name}`, bytes);
     }
-  }
-
-  const json = async (u) => { const r = await fetch(new URL(u, import.meta.url)); if (!r.ok) throw new Error(`${u}: HTTP ${r.status}`); return r.json(); };
-  const [gmap, cfg, ann] = await Promise.all([json('../../assets/gmap.json'), json('../modules.json'), json('../convert/annotations.json')]);
-  const read = (name) => {
-    const b = v.files.get(name);
-    if (!b) throw new Error(`recipe needs ${name}, which the manifest does not list`);
-    return b;
-  };
-  let files = 0, bytes = 0, step = 0;
-  for await (const out of convertAll(read, { deflate: streamDeflate, gmap, code: { files: v.files, cfg, ann }, onStep: (s, label) => { step = s; progress('convert', s, STEPS, label); } })) {
-    await writeFile(dir, out.path, out.bytes);
-    files++; bytes += out.bytes.length;
-    progress('convert', step, STEPS, `writing ${out.path}`);
-  }
-  const info = { manifest: MANIFEST.version, recipe: RECIPE_VERSION, files, bytes, originals: v.files.size, at: new Date().toISOString() };
-  await writeFile(dir, 'done', new TextEncoder().encode(JSON.stringify(info)));
-  postMessage({ type: 'done', info, notes: v.notes });
+    let files = 0, bytes = 0, step = 0;
+    const labels = ['Preparing game data', 'Preparing equipment', 'Preparing pictures', 'Preparing the optional crew', 'Preparing game rules', 'Finishing'];
+    for await (const out of convertAll(read, { deflate: streamDeflate, gmap, code: { files: v.files, cfg, ann, vers: v.vers }, allowNewCrew: msg.allowNewCrew, onStep: (s) => { step = s; progress('convert', s, STEPS, labels[s]); } })) {
+      await writeFile(dir, out.path, out.bytes);
+      files++; bytes += out.bytes.length;
+      progress('convert', step, STEPS, labels[step]);
+    }
+    const info = { manifest: MANIFEST.version, recipe: RECIPE_VERSION, ver: v.ver, files, bytes, originals: v.files.size, at: new Date().toISOString(), sourceId: msg.sourceId ?? null };
+    await writeFile(dir, 'done', new TextEncoder().encode(JSON.stringify(info)));
+    return info;
+  });
+  postMessage({ type: 'done', info });
 }
 
-onmessage = (e) => run(e.data).catch((err) => postMessage({ type: 'error', message: String(err?.message ?? err), problems: [] }));
+let pending;
+globalThis.onmessage = (e) => {
+  const msg = e.data.cmd === 'continue' ? { ...pending, allowNewCrew: true } : e.data;
+  pending = msg;
+  return run(msg).catch((err) => postMessage({ type: 'error', code: err.code, message: err.name === 'QuotaExceededError' ? 'There is not enough browser storage. Free some disk space and retry. Your previous import and saves are kept.' : err.message || 'Import failed. Please retry; your previous import and saves are kept.', problems: [] }));
+};

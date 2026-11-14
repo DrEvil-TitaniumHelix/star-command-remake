@@ -9,11 +9,12 @@ export class Timer {
     this.stdDelay = SHIPPED_STD_DELAY;
     this.stdSource = stdSource;
     this.clock = () => (typeof performance !== 'undefined' ? performance.now() : Date.now());
+    const d = new Date();
+    this.base = (d - new Date(d.getFullYear(), d.getMonth(), d.getDate())) / 1000 - this.clock() / 1000;
   }
 
   now() {
-    const d = new Date();
-    const secs = (d - new Date(d.getFullYear(), d.getMonth(), d.getDate())) / 1000;
+    const secs = this.base + this.clock() / 1000;
     return Math.fround(Math.floor(secs * TICKS_PER_SEC) / TICKS_PER_SEC);
   }
 

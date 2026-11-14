@@ -64,6 +64,7 @@ opened = true; sync(); assert.equal(mockButton.hidden, false);
 revealE.input.modal = {}; sync(); assert.equal(mockButton.hidden, true);
 revealE.input.modal = null; revealEnabled = false; sync(); assert.equal(mockButton.hidden, true);
 const helpE = { input: {}, text: { screenText: () => [] }, pointer: { regions: () => [] },
+  manual: { data: manual },
   settings: { on: () => true }, speed: { label: 'fast' }, display: { overlays: [] } };
 installHelp(helpE);
 assert.ok(helpE.help.lines().includes('Manual: use Manual button / screen selector'));

@@ -84,3 +84,26 @@ assert.equal(textRegions(text).find(r=>r.key==='B').w,112);
 text.cls();text.print('A-Continue? (Y/N)');
 const yn=disjointRegions(textRegions(text));
 assert.equal(yn.find(r=>r.x<=104&&104<r.x+r.w).key,'Y');
+{
+const W={},C={},cv={style:{},addEventListener:(n,f)=>C[n]=f,getBoundingClientRect:()=>({left:0,top:0,width:640,height:400})};
+const H={hidden:true},win={document:{hasFocus:()=>false,getElementById:id=>id==='click-hint'?H:null},addEventListener:(n,f)=>W[n]=f};
+const inp=new Input();inp.text=text;text.cls();text.print('N-NO    Y-YES');
+const P={fb,text,input:inp,sprites:{put(){}},currentModule:'STARTUP'};attachPointer(P,cv,win);
+const fire=(n,e)=>{let stop=0;e.stopImmediatePropagation=()=>stop++;e.preventDefault=()=>{};W[n](e);if(!stop&&C[n])C[n](e);return stop;};
+const click=()=>{const e={button:0,clientX:4,clientY:4};return fire('mousedown',e)+fire('mouseup',e)+fire('click',e);};
+assert.equal(click(),3);assert.equal(inp.inkey(),'');
+assert.equal(click(),0);assert.equal(inp.inkey(),'N');
+W.blur();W.focus();assert.equal(click(),3);assert.equal(inp.inkey(),'');
+W.blur();W.keydown({});assert.equal(click(),0);assert.equal(inp.inkey(),'N');
+const now=Date.now;let T=1e6;Date.now=()=>T;
+const leave=ms=>{W.mouseout({relatedTarget:null});T+=ms;W.mouseover({relatedTarget:null});};
+leave(900);assert.equal(H.hidden,false);assert.equal(click(),3);assert.equal(H.hidden,true);assert.equal(inp.inkey(),'');
+assert.equal(click(),0);assert.equal(inp.inkey(),'N');
+W.mouseout({relatedTarget:null});W.mouseover({relatedTarget:{}});T+=300;W.mouseout({relatedTarget:{}});W.mouseover({relatedTarget:null});assert.equal(H.hidden,true);assert.equal(click(),0);assert.equal(inp.inkey(),'N');
+leave(900);W.keydown({});assert.equal(H.hidden,true);assert.equal(click(),0);assert.equal(inp.inkey(),'N');
+W.mouseout({relatedTarget:null});T+=900;assert.equal(click(),3);assert.equal(inp.inkey(),'');
+W.blur();assert.equal(click(),3);assert.equal(inp.inkey(),'');assert.equal(click(),0);assert.equal(inp.inkey(),'N');
+Date.now=now;
+let cm=0;C.contextmenu({preventDefault:()=>cm++});assert.equal(cm,1);
+}
+

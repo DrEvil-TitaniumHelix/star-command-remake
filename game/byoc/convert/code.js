@@ -3,12 +3,12 @@ import { buildModule, stringTableJs } from '../pipeline.js';
 const enc = (s) => new TextEncoder().encode(s);
 const storePath = (p) => p.replace(/^game\//, '');
 
-export function* buildCode(files, cfg, ann) {
+export function* buildCode(files, cfg, ann, vers) {
   const done = new Set();
   for (const [mod, mc] of Object.entries(cfg.modules)) {
     if (!mc.bas2js) continue;
     const r = buildModule(mod, {
-      exe: files.get(`${mod}.EXE`), files, cfg, rtNames: ann.rtNames, inlineArgs: ann.inlineArgs, sprites: ann.sprites,
+      exe: files.get(`${mod}.EXE`), variant: vers?.get(`${mod}.EXE`), files, cfg, rtNames: ann.rtNames, inlineArgs: ann.inlineArgs, sprites: ann.sprites,
       names: ann.modules[mod].names, header: ann.modules[mod].header,
     });
     for (const [out, text] of [[mc.bas2js.out, r.js], [mc.bas2js.banks_out, r.banks]]) {
@@ -18,7 +18,7 @@ export function* buildCode(files, cfg, ann) {
     }
   }
   if (cfg.strings) {
-    const t = stringTableJs(cfg, files);
+    const t = stringTableJs(cfg, files, vers);
     yield { path: storePath(t.path), bytes: enc(t.js), module: cfg.strings.modules.join('+') };
   }
 }

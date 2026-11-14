@@ -1,4 +1,4 @@
-import { drawPanel } from './ui.js';
+import { drawPanel, drawText, UI } from './ui.js';
 
 const modules = new Set(['STARPORT', 'SPACE', 'INSIDE', 'PLBATTLE']);
 const limits = { STARPORT: { 'squad weapons': [38, 30], guns: [28], shields: [18], 'misc items': [38, 18] },
@@ -61,15 +61,15 @@ function describe(item, E) {
     .map(([key, value]) => {
       let label = key;
       if (key === 'price') {
-        label = buying ? 'Weapon purchase price' : 'Base price';
+        label = buying ? 'Price' : 'Base price';
         if (item.group !== 'guns' && item.group !== 'squad weapons') label = buying ? 'Purchase price' : 'Base price';
         if (buying) value = item.fields['printed purchase price'] ?? item.fields['starport purchase price'];
       } else if (key === 'ammo price') {
-        label = buying ? 'Ammo purchase price' : 'Ammo base price';
+        label = buying ? 'Ammo price' : 'Ammo base price';
         if (buying) value = item.fields['starport ammo purchase price'];
       } else if (key === 'damage kind') label = 'damage type';
       else if (key === 'size class name') label = 'size class';
-      return `${label}: ${typeof value === 'number' ? Number(value.toPrecision(7)) : value}`;
+      return `${label[0].toUpperCase()}${label.slice(1)}: ${typeof value === 'number' ? Number(value.toPrecision(7)) : value}`;
     });
   if (E.currentModule === 'PLBATTLE' && item.group === 'squad weapons') {
     const row = E.text.screenText().find(r => r.includes(item.name.slice(0,31)));
@@ -95,12 +95,16 @@ export function installTooltips(E, canvas) {
   canvas.addEventListener('mouseleave', () => { pointer = null; });
   E.display.overlays.push(ctx => {
     if (E.input.modal || !E.settings.on('itemTooltips')) return;
+    if (E.currentModule === 'STARPORT') { const rows = E.text.screenText(); if (rows.some(r => /Select A .*Weapon/.test(r))) for (const hit of regions(E, items)) {
+      const price = Math.round(hit.item.fields?.['printed purchase price'] ?? hit.item.fields?.['starport purchase price'] ?? NaN), t = String(price);
+      if (Number.isFinite(price) && hit.end + t.length < 38 && !rows[hit.row].slice(hit.end, 39).trim()) drawText(ctx, E, t, (38 - t.length) * 16, hit.row * 16, UI.dim, 2);
+    } }
     let tip, anchor;
     const h = E.input.highlight;
     if (h && E.input.lastDevice === 'gamepad') {
       const hit = regions(E, items).find(it => it.row === h.row - 1 && it.col < h.col - 1 + h.len && it.end > h.col - 1);
       if (hit) { tip = at(hit.end * 8 - 1, hit.row * 8); anchor = { x: h.col * 16, y: h.row * 16 }; }
     } else if (pointer) { const p = E.display.viewToLogical(pointer.x, pointer.y); tip = at(p.x, p.y); anchor = pointer; }
-    if (tip) drawPanel(ctx, E, anchor.x + 12, anchor.y + 12, [tip.title, ...tip.lines], { scale: 1 });
+    if (tip) { const lines = [tip.title, ...tip.lines], h = lines.length * 10 + 14; drawPanel(ctx, E, anchor.x + 12, anchor.y < 200 ? 400 - h : 0, lines, { scale: 1 }); }
   });
 }
