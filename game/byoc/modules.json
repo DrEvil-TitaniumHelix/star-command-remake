@@ -44,8 +44,7 @@
     "INSIDE": {"qb2bas": ["--tempbase", "8968", "--end", "71E3"],
                "bas2js": {"backend": "class", "tool_banner": "game/modules/inside/bas2js.py", "screens_prefix": "IN",
                           "base_class": "InsideRT", "runtime": "./inside/runtime.js", "runtime_doc": "game/modules/inside/basic.js",
-                          "tail": "inside", "locate_cursor": true, "play_sync": true, "print_whole": true,
-                          "_print_whole_why": "INSIDE 046F1 PRINT ..; STRING$(-(POS(0) - 23), \".\"); .. evaluates POS(0) before the first item is printed (the SPACE rule prints item by item); kept so the committed inside.js is reproduced, a likely latent dot-leader bug, see docs/byoc/B3.md",
+                          "tail": "inside", "locate_cursor": true, "play_sync": true,
                           "fn_inline": {
                             "_why": "INSIDE.bas.md 0359-0426: FNCrew/FNIdx use base 1500 = squad member m is crew slot m+2; FNRoom/FNCell index InMap%",
                             "FNCrew": "Math.floor(fr(G[cint(({0}) * 100 + ({1}) + 1500)] + 0.1))",

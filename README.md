@@ -2,7 +2,7 @@
 
 A faithful rebuild of **Star Command** (Strategic Simulations, Inc., 1988; written by Winston Douglas Wood) that runs in
 a web browser. It was made from a decode of the original QuickBASIC 3 program: its seven main modules were
-turned into readable pseudocode, reviewed, and translated into a JavaScript engine. Status: **beta (v0.1.3-beta)**,
+turned into readable pseudocode, reviewed, and translated into a JavaScript engine. Status: **beta (v0.1.4-beta)**,
 ready for community testing.
 
 **Bring your own copy.** This repository contains none of the game's files: no program, data, graphics or sound. You
@@ -95,10 +95,10 @@ game folder separately.
   if you also want to remove them.
 
 ### Controls
-With the helpers enabled, keyboard, mouse and gamepad work at the same time; **F1** (gamepad *View / Back*) shows the
-keys the current screen accepts.
+With the helpers enabled, keyboard, mouse and gamepad work at the same time; **F1** (gamepad *View / Back*) opens
+Star Command Plus; its Help tab shows the keys the current screen accepts.
 - **Keyboard** as in the original: the letters shown in menus, **Y / N**, **Enter**, **Space**, digits **1-6** for crew
-  pickers, **arrow keys** to move. Extra: **Esc** = pause menu (save & quit, load, settings), **F1** = help, **F2** = game
+  pickers, **arrow keys** to move. Extra: **Esc** = pause menu (save & quit, load, settings), **F1** = Star Command Plus, **F2** = game
   speed.
 - **Mouse**: click recognised menu choices, click a map spot to move towards it, tooltips on items
   and enemies.
@@ -108,7 +108,7 @@ keys the current screen accepts.
 
 **Esc, T-Settings** opens the **Star Command Plus** window. Use its checkboxes to switch helpers on or off; Sound,
 Music and Sound effects have separate switches. The pause menu and keyboard **F1** remain available. Plus also has
-Help and Log book tabs. The game keeps running while Plus is open; use the pause menu when you need to pause.
+Crew, Help and Log book tabs, and F1 reopens it on the tab you used last. The game keeps running while Plus is open; use the pause menu when you need to pause.
 The full player guide is [game/README.md](game/README.md).
 
 ### Known beta limitations

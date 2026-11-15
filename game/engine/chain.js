@@ -31,6 +31,10 @@ export async function run(E, module, opts = {}, loader = (f) => import(`../modul
       result = e;
     }
     if (!(result instanceof ChainSignal)) return result;
+    if (mod === 'PLBATTLE' && E.timer && E.text?.screenText?.().some((r) => r.includes('BATTLE REPORT'))) {
+      const t0 = E.timer.clock(), end = t0 + 1000 * E.timer.delaySeconds(22 * (E.state.G[88] || E.timer.stdDelay));
+      for (;;) { const t = E.timer.clock(); if (t >= end) break; if (t - t0 < 700) E.input.flush?.(); else if (E.input.inkey?.()) break; await E.timer.frame(); }
+    }
     mod = result.module;
     opts = result.opts;
     E.input.clearMenu?.();

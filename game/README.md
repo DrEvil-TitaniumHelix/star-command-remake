@@ -33,12 +33,12 @@ folder to remain available when starting.
 
 ## Controls
 
-Keyboard, mouse and gamepad all work at the same time. Press **F1** (gamepad **View / Back**) during play to see
-the keys the current screen accepts.
+Keyboard, mouse and gamepad all work at the same time. Press **F1** (gamepad **View / Back**) during play to open
+Star Command Plus; its Help tab shows the keys the current screen accepts.
 
 ### Keyboard (as in the original)
 
-Use the original game's keys below. If a screen leaves a key unexplained, **F1** opens help for that screen.
+Use the original game's keys below. If a screen leaves a key unexplained, **F1** opens Star Command Plus, whose Help tab lists that screen's keys.
 
 | What you see | Press |
 |---|---|
@@ -51,7 +51,7 @@ Use the original game's keys below. If a screen leaves a key unexplained, **F1**
 | typed answers (time delay, names, save slot names) | type, **Backspace** to correct, **Enter** |
 | option lists inside stations | **Up** / **Down**, **Enter** |
 
-Extra keys of the port: **Esc** = the Esc menu, **F1** = controls help, **F2** = game speed.
+Extra keys of the port: **Esc** = the Esc menu, **F1** = Star Command Plus, **F2** = game speed.
 
 ### Mouse
 
@@ -61,7 +61,7 @@ Extra keys of the port: **Esc** = the Esc menu, **F1** = controls help, **F2** =
   A click does exactly what that key does. The pointer turns into a hand over anything clickable.
 - **Click a spot on a map** (station map, space maps, ground battlefield) to move one step towards it.
 - **Point at things** to see tooltips: shop items and crew rows, enemies in battle.
-- **Buttons in the corners** include `?` help, `Log book`, `Speed`, and in battles `Range` / `Hit preview`.
+- **Buttons in the corners** include `?` (Star Command Plus), `Speed`, and in battles `Range` / `Hit preview`.
   Move the mouse over the picture to reveal them. The Manual button is hidden in this public build.
 - When you click back into the game after using another window, the first click restores focus; **Click again to
   play** means the next click will act on the game.
@@ -77,7 +77,7 @@ Extra keys of the port: **Esc** = the Esc menu, **F1** = controls help, **F2** =
 | **X** | Space |
 | **Y** | the letter Y (answers "yes") |
 | **Start** (≡) | opens the Esc menu |
-| **View / Back** (⧉) | controls help (F1); if the help is switched off, the Esc menu |
+| **View / Back** (⧉) | Star Command Plus (F1); if the help is switched off, the Esc menu |
 
 **Letter menus with the gamepad:** press **LB** or **RB** until the yellow box is on the item you want, then press
 **A**. The box goes away when the menu changes. The d-pad always stays the arrow keys, because some screens (space,
@@ -98,10 +98,10 @@ an on-screen keyboard):
 Settings tab and click a checkbox, or use **Tab** to reach it and **Space** to change it. Your choices are remembered.
 Helpers start enabled, except that Manual is hidden when its text is unavailable. The pause menu cannot be disabled.
 
-Plus has **Help**, **Settings** and **Log book** tabs. Close it with its window close button or **Alt+F4** while that
+Plus has **Crew**, **Help**, **Settings** and **Log book** tabs; **F1** reopens it on the tab you used last. Close it with its window close button or **Alt+F4** while that
 window has focus. The game keeps running while Plus is open; open the Esc menu in the game when you need a pause.
 If the browser blocks the separate window, Help and Settings appear in a movable panel on the game page. Close that
-panel with its close button or **Esc** while it has focus. The in-game Log book button remains available.
+panel with its close button or **Esc** while it has focus.
 
 - **Mouse control**: click a recognised choice, or a map spot to move
   there step by step (see *Mouse* above). Turning it off disables these game commands; Plus controls remain usable.
@@ -115,7 +115,7 @@ panel with its close button or **Esc** while it has focus. The in-game Log book 
     page tells you that you can close it and offers **Enter** to return to the title.
 - **Skip rule-book question**: **G-Game Save** at the starport saves at
   once. Off = the original asks for a word from the rule book first.
-- **Controls help**: **F1** opens the Plus Help tab with the current screen's keys and general controls. The switch
+- **Controls help**: the Plus Help tab shows the current screen's keys and general controls; **F1** opens Plus. The switch
   **Help button (?) and gamepad Back** controls the mouse button and gamepad shortcut; keyboard **F1** still works.
 - **Item tooltips**: point at a weapon, armor, equipment, ship or crew row in the shops, inspect
   and equip screens to see its numbers and price (damage, shots, range, weight, armor, monthly pay ...). All
@@ -125,10 +125,10 @@ panel with its close button or **Esc** while it has focus. The in-game Log book 
   lets you pick a slot or continue the normal save. Use **Up** / **Down** and **Enter**, or click the row. An
   **Autosave** slot is written every time you arrive at a starport. Turning this off hides the slots and stops new
   autosaves; it does not delete existing slots.
-- **Crew status panel**: when the window has enough spare space beside the picture, a
-  panel beside it shows the whole crew: health, weapon, ammo and reloads; stamina in ground battles; fuel, armor and
+- **Crew status**: the Plus Crew tab shows the whole crew, and when the window has enough spare space beside the
+  picture a panel beside it shows the same: health, weapon, ammo and reloads; stamina in ground battles; fuel, armor and
   the ship's systems in space.
-- **Log book**: the Plus Log book tab or the `Log book` corner button opens your journal: mission briefings,
+- **Log book**: the Plus Log book tab opens your journal: mission briefings,
   arrivals, battles, credits, deaths and medals. It follows save checkpoints, is written by Save & Quit or a slot
   save, and is cleared when you start a new game.
 - **Combat aids** (`Enemy tooltips`, `Range overlay`, `Hit-chance preview`): point at an

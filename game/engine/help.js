@@ -62,7 +62,7 @@ export function installHelp(E) {
   }
   const lines = () => Object.values(sections()).flat();
   const close = () => { active = false; if (isOpen()) E.settingsPanel.close(); };
-  const open = () => { if (E.input.modal || E.plus?.open('help')) return; if (E.settingsPanel) E.settingsPanel.open('help'); else active = true; };
+  const open = () => { if (E.input.modal || E.plus?.open()) return; if (E.settingsPanel) E.settingsPanel.open('help'); else active = true; };
   const toggle = () => { if (E.input.modal) return; if (isOpen()) close(); else open(); };
   toggle.enabled = enabled; toggle.isOpen = isOpen;
   E.help = {open,close,toggle,isOpen,lines,sections};

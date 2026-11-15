@@ -83,7 +83,7 @@ export function enemyRegions(E) {
       rows.forEach((r,y)=>{if(!/Groups In Range:/.test(r))return;for(let x=r.indexOf(':')+1;x<r.length;x++)if(r[x].toUpperCase()===letter)out.push({i,x:x*8,y:y*8,w:8,h:8});});
     } else {
       const x=arr(E,'EnX!')[i],y=arr(E,'EnY!')[i];
-      if(val(E,'ViewMode!')===0) {if(Math.abs(x-arr(E,'EnX!')[5])<7&&Math.abs(y-arr(E,'EnY!')[5])<7)out.push({i,x:x*8-96,y:y*8-16,w:16,h:16});}
+      if(val(E,'ViewMode!')===0) {if(x>13&&x<28&&y>3&&y<17)out.push({i,x:x*8-96,y:y*8-16,w:16,h:16});}
       else out.push({i,x:x*5-23,y:y*5+24,w:5,h:5});
     }
   }
@@ -125,7 +125,7 @@ export function installCombat(E,canvas=E.display.canvas) {
     }
     if(phase&&hit&&enabled('hitPreview')) {const p=preview(E);if(p)drawPanel(ctx,E,0,300,p.lines,{scale:1});}
     if(!enabled('enemyTooltips'))return;
-    if(E.currentModule==='SPBATTLE')for(const r of enemyRegions(E)){ctx.fillStyle=UI.bg;ctx.fillRect((r.x+r.w)*2,r.y*2-2,18,20);drawText(ctx,E,String.fromCharCode(65+r.i),(r.x+r.w)*2+1,r.y*2,UI.key,2);}
+    if(E.currentModule==='SPBATTLE'&&E.moduleInstance&&val(E,'ViewMode!')!==0)for(const r of enemyRegions(E)){ctx.fillStyle=UI.bg;ctx.fillRect((r.x+r.w)*2,r.y*2-2,18,20);drawText(ctx,E,String.fromCharCode(65+r.i),(r.x+r.w)*2+1,r.y*2,UI.key,2);}
     let tip;
     const h=E.input.highlight;
     if(h&&E.input.lastDevice==='gamepad')tip=at((h.col-1)*8,(h.row-1)*8);

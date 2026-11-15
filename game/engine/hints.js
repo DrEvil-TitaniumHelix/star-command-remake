@@ -1,4 +1,4 @@
-export const BASE = 'Esc - Menu     F1 - Help', ANY = 'Press any key', BACK = 'Enter - Back', SAVED = 'Game saved',
+export const BASE = 'Esc - Menu     F1 - Plus', ANY = 'Press any key', BACK = 'Enter - Back', SAVED = 'Game saved',
   OLD = 'Options 3 and 5 are kept from the 1988 version and change nothing here.';
 const TITLE = ['STARCOMM', 'STARTUP'];
 

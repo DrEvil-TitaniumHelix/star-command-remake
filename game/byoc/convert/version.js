@@ -1,1 +1,1 @@
-export const RECIPE_VERSION = '4';
+export const RECIPE_VERSION = '6';

@@ -27,6 +27,24 @@ log.persist(checkpoint);assert.deepEqual(JSON.parse(new TextDecoder().decode(sav
 log.restore(checkpoint);assert.deepEqual(log.entries(),checkpoint);
 flags.logBook=false;G[79]=100;rows=['Mission other'];log.observe();log.persist([]);
 assert.deepEqual(log.entries(),checkpoint);assert.deepEqual(JSON.parse(new TextDecoder().decode(saved.get('LOGBOOK'))),checkpoint);
+{
+ const g=new Float32Array(2601), un=['','Pilot','Comms','Able','Baker','Charlie','Dog','Easy','Fox'];let names=un.slice(),ms=0;
+ const engine={currentModule:'SPACE',fb:{version:1},timer:{clock:()=>ms},state:{G:g,str:n=>n==='CrewName$'?names:[]},settings:{on:()=>true},files:{saved:()=>null},
+  input:{},display:{frameHooks:[]},text:{screenText:()=>['']},chain:m=>{engine.currentModule=m;}};
+ const book=installPanels(engine),deaths=()=>book.entries().filter(e=>e.kind==='death').map(e=>e.text);
+ const sw=(a,b)=>{[names[a],names[b]]=[names[b],names[a]];book.observe();};
+ const fwd=()=>{for(let i=1;i<=6;i++)sw(i+2,i);ms+=600;book.observe();}, rev=()=>{for(let i=6;i>=1;i--)sw(i+2,i);};
+ for(let m=1;m<=8;m++){g[1315+100*m]=30;g[1331+100*m]=1;}
+ engine.currentModule='INSIDE';fwd();book.observe();
+ assert.deepEqual(engine.crewNames,un,'jump start: crew order seeded only from a settled list');
+ for(const [from,to] of [['INSIDE','PLBATTLE'],['PLBATTLE','INSIDE'],['PLBATTLE','SPACE']]){
+  engine.currentModule=from;book.observe();
+  if(from==='PLBATTLE'){g[1831]=0;book.observe();}
+  rev();engine.chain(to);book.observe();if(to!=='SPACE')fwd();
+  g[1831]=1;rev();engine.currentModule='SPACE';book.observe();engine.currentModule='INSIDE';fwd();
+ }
+ assert.deepEqual(deaths(),['Charlie died','Charlie died'],'names moved back before CHAIN: only the dead member, once per fight');
+}
 console.log('panels: crew, ammo, stamina, ship, journal deltas, checkpoint persistence, off and read-only checks pass');
 
 {

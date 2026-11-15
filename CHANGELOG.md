@@ -1,5 +1,27 @@
 # Changelog
 
+## v0.1.4-beta — 2026-11-15
+
+**Fixed.**
+- Inside stations, the Inspect skills page: every skill level sits in one column and nothing runs over the right-hand
+  panels or stays behind on later screens.
+- The Esc menu covers the station map; the squad marker no longer shows through it.
+- After a ground battle the BATTLE REPORT (credits gained, killed, survived, surrendered) stays on screen long enough to
+  read, about as long as four of the game's message pauses; a key pressed once it is up ends the wait.
+- The Log book names only crew who died, once each.
+- "Corridor" is spelled correctly in station text.
+- In ship battles the helper's enemy letters appear on the scan view only, for every ship shown; the visual view shows
+  the ships alone.
+
+**Star Command Plus.** F1 opens Star Command Plus on the tab used last. Plus has a new Crew tab with the crew's health
+and weapons and, in space, the ship's fuel, armor and systems. The Log book button under the picture is removed; the
+log is the Log book tab in Plus. The line under the picture reads "F1 - Plus".
+
+**Updating.** Copies already imported are prepared again automatically on first start; saved games are kept.
+
+**Documentation.** The README was checked against the released build and corrected: `StarCommand.exe` is the Windows
+launcher, saving keeps progress at a starport, and the original folder is needed only for a new import.
+
 ## v0.1.3-beta — 2026-11-14
 
 **Import.** Version 1.2 of the game (start menu "Version 1.2 5/23/88") is now accepted as well as version 1.0, and the

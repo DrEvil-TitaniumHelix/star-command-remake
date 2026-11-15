@@ -15,7 +15,7 @@ export class InsideRT extends BasicRT {
       get: (o, k) => (k in cv ? (store.has(cv[k]) ? store.get(cv[k]) : 0) : local[k]),
       set: (o, k, v) => { if (k in cv) store.set(cv[k], v); else local[k] = v; return true; },
     });
-    if (E.display?.overlays && !E.sqDraw) E.display.overlays.push(E.sqDraw = (ctx) => {
+    if (E.display?.overlays && !E.sqDraw) E.display.overlays.unshift(E.sqDraw = (ctx) => {
       const k = E.sq; if (!k) return;
       ctx.save();
       for (const [c, w] of [['#000', 4], ['#ff55ff', 2]]) { ctx.strokeStyle = c; ctx.lineWidth = w; ctx.strokeRect(k[0] * 2 - 3, k[1] * 2 - 3, 16, 16); }

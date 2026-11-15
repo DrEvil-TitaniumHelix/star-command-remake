@@ -2,6 +2,11 @@ import { TEXT, BIN_MBF, BIN_INT, DISK_FILES } from './lists.js';
 import { dumps, utf8, PyFloat } from './pyjson.js';
 
 const latin1 = (b) => { let s = ''; for (let i = 0; i < b.length; i++) s += String.fromCharCode(b[i]); return s; };
+const fixes = [[/\bcoridor\b/gi, (s) => s.slice(0, 3) + s[2] + s.slice(3)]];
+const textBytes = (b) => {
+  const s = latin1(b), t = fixes.reduce((s, [re, to]) => s.replace(re, to), s);
+  return t === s ? b : Uint8Array.from(t, (c) => c.charCodeAt(0));
+};
 const pyInt = (v) => (v === Math.trunc(v) ? (Object.is(v, -0) ? 0 : v) : v);
 
 const FLOAT_RE = /^[+-]?(?:(?:\d(?:_?\d)*)?\.\d(?:_?\d)*|\d(?:_?\d)*\.?)(?:[eE][+-]?\d(?:_?\d)*)?$/;
@@ -81,7 +86,7 @@ export function bsaveBody(data) {
 }
 
 export function convertText(name, data) {
-  const r = new InputReader(data);
+  const r = new InputReader(textBytes(data));
   const rep = (n, f) => Array.from({ length: n }, f);
   if (name === 'NAME' || name === 'CHARNAME') {
     const fields = [];
@@ -137,7 +142,7 @@ export const tableStem = (name) => (name.endsWith('.BAS') ? name.slice(0, name.l
 
 export function* convertData(read) {
   for (const name of DISK_FILES) {
-    const data = read(name);
+    const b = read(name), data = TEXT.includes(name) ? textBytes(b) : b;
     yield { path: `files/${name}`, bytes: data };
     const obj = convertFile(name, data);
     if (obj) yield { path: `data/${tableStem(name)}.json`, bytes: utf8(dumps(obj, { separators: [',', ':'], ensureAscii: false })), table: obj };

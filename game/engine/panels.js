@@ -1,15 +1,19 @@
-import {cornerButton} from './speed.js';
 const supported = new Set(['SPACE', 'INSIDE', 'PLBATTLE', 'SPBATTLE']);
 const whole = new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 });
 export const logLines = entries => entries.map(e => `[${e.kind}] ${e.text.replace(/[+-]?(?:\d+(?:,\d{3})*(?:\.\d+)?|(?<![\w.])\.\d+)(?:e[+-]?\d+)?/gi,
   n => (n[0] === '+' ? '+' : '') + whole.format(Number(n.replaceAll(',', ''))))}`);
 export function crewStatus(E) {
-  const G = E.state.G, names = E.state.str('CrewName$');
-  const shifted = ['PLBATTLE','INSIDE'].includes(E.currentModule);
+  const G = E.state.G, names = E.state.str('CrewName$'), ref = E.crewNames, key = names.slice(1,9).join('|');
+  const inner = ['PLBATTLE','INSIDE'].includes(E.currentModule), now = E.timer?.clock?.() ?? Date.now();
+  if (E.crewSeen?.key !== key) E.crewSeen = {key, t: now};
+  const back = ref?.slice(1,9).join('|'), moved = ref && [...ref.slice(3,9), ref[1], ref[2]].join('|');
+  if (inner && ref && key !== back && key !== moved && E.crewLast) return E.crewLast;
+  const shifted = inner && key !== back;
   if (!shifted && names.slice(1,9).some(n => n)) E.crewNames = names.slice();
+  else if (shifted && !ref && names[7] && names[8] && now - E.crewSeen.t >= 500) E.crewNames = [names[0], names[7], names[8], ...names.slice(1,7)];
   const weapons = typeof E.moduleInstance?.A==='function' ? E.moduleInstance.A('WeaponName$') : E.state.str('WeaponName$');
   const items = E.tooltips?.items?.()?.filter(i => i.group==='squad weapons');
-  return Array.from({length:8}, (_, i) => {
+  return E.crewLast = Array.from({length:8}, (_, i) => {
     const m = i+1, b = 1300+100*m, slot = Math.trunc(G[b+32]);
     const rec = 788+12*slot, type = slot > 0 ? Math.trunc(G[rec]) : 0;
     let reloads = 0;
@@ -126,7 +130,7 @@ export function installPanels(E) {
     const key=inkey();if(key)observe();return key;
   };}
   const doc=E.display.canvas?.ownerDocument;
-  let panel,journal,button,body;
+  let panel,journal,body;
   function renderLog(){if(body)body.textContent=logLines(entries).join('\n\n') || 'No entries yet.';}
   if(doc?.body){
     panel=doc.createElement('aside');panel.id='crew-status';panel.hidden=true;panel.setAttribute('aria-label','Crew status');
@@ -134,7 +138,6 @@ export function installPanels(E) {
     const close=doc.createElement('button');close.textContent='Close log book';close.onclick=()=>E.logbook.close();
     body=doc.createElement('pre');journal.append(close,body);
     doc.body.append(panel,journal);
-    button=cornerButton(E,'Log book',110,()=>enabled('logBook'),()=>E.logbook.open());button.id='log-book-button';
   }
   E.display.frameHooks.push(()=>{
     observe();if(!panel)return;

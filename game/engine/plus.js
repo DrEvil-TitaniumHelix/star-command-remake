@@ -1,15 +1,17 @@
 import { FEATURES, AUDIO } from './settings.js';
 import { manualLines, hasManual } from './manual.js';
-import { logLines } from './panels.js';
+import { logLines, crewLines, crewStatus, shipStatus } from './panels.js';
 
-export const CHANNEL = 'starcommand-plus', GEOM = 'starcommand:plus-window', NAME = 'starcommand-plus';
-export const TABS = { help: 'Help', settings: 'Settings', log: 'Log book', manual: 'Manual' };
+export const CHANNEL = 'starcommand-plus', GEOM = 'starcommand:plus-window', NAME = 'starcommand-plus', LAST = 'starcommand:plus-tab';
+export const TABS = { crew: 'Crew', help: 'Help', settings: 'Settings', log: 'Log book', manual: 'Manual' };
+const CREW = ['SPACE', 'INSIDE', 'PLBATTLE', 'SPBATTLE', 'STARPORT'], SHIP = ['SPACE', 'SPBATTLE'], NL = String.fromCharCode(10);
+const crewText = E => { try { return E.state && CREW.includes(E.currentModule) ? crewLines(crewStatus(E)).join(NL + NL) + (SHIP.includes(E.currentModule) ? NL + NL + 'Ship status' + NL + shipStatus(E).join(NL) : '') : ''; } catch { return ''; } };
 const PREFIX = { STARTUP: 'SU', STARCOMM: 'CM', STARPORT: 'PT', SPACE: 'SP', INSIDE: 'IN', SPBATTLE: 'SB', PLBATTLE: 'PB' };
 const known = n => Object.hasOwn(FEATURES, n) || Object.hasOwn(AUDIO, n);
 
 export function snapshot(E) {
   const d = hasManual(E) ? E.manual.data : null, id = d && Object.keys(d.screens).find(s => s.startsWith(`${PREFIX[E.currentModule]}-`));
-  return { t: 'state', module: E.currentModule ?? '',
+  return { t: 'state', module: E.currentModule ?? '', crew: crewText(E),
     help: E.help?.sections?.() ?? { screen: [], general: [], additions: [] },
     settings: Object.fromEntries([...Object.keys(AUDIO), ...Object.keys(FEATURES)].filter(n => n !== 'manual' || d).map(n => [n, E.settings?.on(n) !== false])),
     log: E.settings?.on('logBook') === false || !E.logbook ? null : logLines(E.logbook.entries()),
@@ -36,7 +38,8 @@ export function installPlus(E, win = globalThis.window) {
   const g = Math.random().toString(36).slice(2, 10), ch = win.BroadcastChannel ? new win.BroadcastChannel(CHANNEL) : null;
   const post = m => { try { ch?.postMessage({ ...m, g }); } catch { } };
   if (ch) ch.onmessage = e => { if (e.data?.g === g) handle(E, e.data, m => { last = JSON.stringify(m); post(m); }); };
-  E.plus = { open(tab = 'help') {
+  E.plus = { open(tab) {
+    if (!tab) { try { tab = win.localStorage.getItem(LAST); } catch { } if (!Object.hasOwn(TABS, tab ?? '')) tab = 'crew'; }
     let geo; try { geo = JSON.parse(win.localStorage.getItem(GEOM)); } catch { }
     try { w = win.open(`plus.html?g=${g}#${tab}`, `${NAME}-${g}`, features(geo, win)); } catch { w = null; }
     if (!w) return false;
@@ -62,7 +65,7 @@ export function runPlusWindow(doc, win = doc.defaultView) {
     b.onclick = () => select(id); return b;
   });
   const list = (title, items) => { el('h2', title, main); const ul = el('ul', null, main); for (const s of items) el('li', s, ul); if (!items.length) el('li', 'None', ul); };
-  const part = () => st && ({ help: st.help, settings: st.settings, log: st.log, manual: st.manual })[tab];
+  const part = () => st && ({ crew: st.crew, help: st.help, settings: st.settings, log: st.log, manual: st.manual })[tab];
   const manual = () => !!st && Object.hasOwn(st.settings, 'manual');
   const state = () => JSON.stringify([tab, st?.module, manual(), part()]);
   function render() {
@@ -70,7 +73,8 @@ export function runPlusWindow(doc, win = doc.defaultView) {
     for (const b of buttons) { b.hidden = b.dataset.tab === 'manual' && !manual(); b.setAttribute('aria-selected', String(b.dataset.tab === tab)); }
     shown = state(); main.replaceChildren();
     if (!st) { el('p', 'Waiting for the game window…', main); return; }
-    if (tab === 'help') {
+    if (tab === 'crew') el('pre', st.crew || 'No crew to show on this screen.', main);
+    else if (tab === 'help') {
       list(`This screen (${st.module || 'starting'})`, st.help.screen); list('General keys', st.help.general); list('Additions', st.help.additions);
     } else if (tab === 'settings') {
       for (const [title, rows] of [['Sound', AUDIO], ['Additions', FEATURES]]) {
@@ -91,7 +95,7 @@ export function runPlusWindow(doc, win = doc.defaultView) {
     } else if (!st.manual) el('p', 'The manual is off (Settings tab).', main);
     else for (const s of st.manual) el('p', s, main);
   }
-  function select(id) { tab = id === 'manual' && !manual() ? 'help' : id; try { win.history.replaceState(null, '', `#${tab}`); } catch { } render(); }
+  function select(id) { tab = id === 'manual' && !manual() ? 'help' : id; try { win.history.replaceState(null, '', `#${tab}`); } catch { } try { win.localStorage.setItem(LAST, tab); } catch { } render(); }
   bc.onmessage = e => {
     if ((e.data?.g ?? null) !== g) return;
     if (e.data?.t === 'close') return win.close();
