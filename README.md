@@ -151,9 +151,6 @@ If you find that the original game does the same thing, say so: such reports get
 - Evidence rules: every claim cites a module and offset or is marked unknown; quoted game text is short and serves as
   evidence.
 
-Built with **Remaster DOS Games** (https://github.com/DrEvil-TitaniumHelix/remaster-dos-games), method version
-v0.1.0: the method, tools and templates this decode followed.
-
 ## Credits and licence
 
 - **Star Command** © 1988 Strategic Simulations, Inc. (SSI); game by Winston Douglas Wood. All rights to the game stay
