@@ -169,7 +169,7 @@ t('NAME / CHARNAME via INPUT # rules = convert_data.py JSON', () => {});
   assert.equal(enc.str(), 'Service Unit');
   assert.deepEqual([enc.num(), enc.num(), enc.num()], [4, 30, -100]);
   const mes = await d.open('MES-1');
-  assert.equal(mes.line(), ''); assert.equal(mes.line(), 'Empty Coridor');
+  assert.equal(mes.line(), ''); assert.equal(mes.line(), 'Empty Corridor');
 }
 
 t('PLAY: STARTUP tune fed 3 chars at a time; PLAY(0) and SOUND x,0', () => {
@@ -206,13 +206,10 @@ t('PLAY: STARTUP tune fed 3 chars at a time; PLAY(0) and SOUND x,0', () => {
   t('SOUND MF: waits for the previous tone, not its own; SOUND x,0 cuts it', () => {});
 }
 
-t('v1.1 input routing: overlay modal gets ENTER for pad A, never the game-menu highlight (review E-2)', () => {
+t('v1.1 input routing: overlay modal gets device keys; code-pushed keys bypass it', () => {
   const i = new Input(); const got = [];
-  i.text = { screenText: () => ['S-Search  R-Reload'] };
-  i.onDeviceEscape = () => { i.modal = { key: (k) => got.push(k), click() {} }; };
-  i.padButton('RB'); assert.equal(i.highlight?.key, 'S');
-  i.padButton('B'); i.padButton('A'); i.padButton('RB'); i.padButton('A');
-  assert.deepEqual(got, ['\r', '\r']);
+  i.modal = { key: (k) => got.push(k), click() {} };
+  i.device('\r'); assert.deepEqual(got, ['\r']);
   i.modal = null; i.push('x'); assert.equal(i.inkey(), 'x', 'code-pushed keys bypass the overlay');
 });
 

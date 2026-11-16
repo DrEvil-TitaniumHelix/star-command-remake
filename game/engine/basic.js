@@ -112,12 +112,9 @@ export const asc = (s) => (s.length ? s.charCodeAt(0) : (() => { throw new Error
 
 export function using(fmt, n) {
   n = f32(n);
-  const m = /^(#+)(\.(#+))?$/.exec(fmt);
+  const m = /^(\+?)#+(\.(#+))?$/.exec(fmt);
   if (!m) throw new Error(`PRINT USING format not supported: ${fmt}`);
-  const intW = m[1].length, dec = m[3] ? m[3].length : 0;
-  let s = Math.abs(n).toFixed(dec);
-  if (n < 0 && parseFloat(s) !== 0) s = `-${s}`;
-  const width = intW + (dec ? dec + 1 : 0);
-  if (s.length > width) return `%${s}`;
-  return s.padStart(width, ' ');
+  const s = (n < 0 ? '-' : m[1]) + Math.abs(n).toFixed(m[3] ? m[3].length : 0);
+  if (s.length > fmt.length) return `%${s}`;
+  return s.padStart(fmt.length, ' ');
 }

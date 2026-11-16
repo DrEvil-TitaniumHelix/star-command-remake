@@ -15,7 +15,6 @@ export class Audio {
       const unlock = () => this.unlock();
       window.addEventListener('keydown', unlock);
       window.addEventListener('pointerdown', unlock);
-      window.addEventListener('gamepadconnected', unlock);
     }
   }
 

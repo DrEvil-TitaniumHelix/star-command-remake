@@ -120,7 +120,7 @@ export class Text {
   printUsing(fmt, values, end = '\n') {
     const vals = Array.isArray(values) ? values : [values];
     let k = 0;
-    const out = fmt.replace(/#+(\.#+)?/g, (f) => usingFmt(f, vals[k++]));
+    const out = fmt.replace(/\+?#+(\.#+)?/g, (f) => usingFmt(f, vals[k++]));
     this.print(out, end);
   }
 }

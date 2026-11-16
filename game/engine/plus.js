@@ -54,6 +54,32 @@ export function installPlus(E, win = globalThis.window) {
   win.addEventListener?.('pagehide', () => { post({ t: 'close' }); try { w?.close(); } catch { } });
 }
 
+export function renderTab(doc, main, st, tab, post) {
+  const el = (tag, text, parent) => { const n = doc.createElement(tag); if (text != null) n.textContent = text; parent?.append(n); return n; };
+  const list = (title, items) => { el('h2', title, main); const ul = el('ul', null, main); for (const s of items) el('li', s, ul); if (!items.length) el('li', 'None', ul); };
+  if (tab === 'crew') el('pre', st.crew || 'No crew to show on this screen.', main);
+  else if (tab === 'help') {
+    list(`This screen (${st.module || 'starting'})`, st.help.screen); list('General keys', st.help.general); list('Additions', st.help.additions);
+  } else if (tab === 'settings') {
+    for (const [title, rows] of [['Sound', AUDIO], ['Additions', FEATURES]]) {
+      const f = el('fieldset', null, main); el('legend', title, f);
+      for (const [name, text] of Object.entries(rows)) {
+        if (!Object.hasOwn(st.settings, name)) continue;
+        const l = el('label', null, f), c = el('input', null, l); c.type = 'checkbox'; c.name = name; c.checked = !!st.settings[name];
+        c.onchange = () => post({ t: 'set', name, value: c.checked }); el('span', text, l);
+      }
+    }
+    const v = el('button', 'Load veteran crew', main), box = el('div', null, main); v.type = 'button'; box.hidden = true;
+    el('p', 'Replace your saved game with the veteran crew?', box);
+    const yes = el('button', 'Load', box), no = el('button', 'Cancel', box);
+    v.onclick = () => { box.hidden = false; no.focus(); }; no.onclick = () => { box.hidden = true; v.focus(); };
+    yes.onclick = () => { post({ t: 'veteran' }); box.hidden = true; };
+  } else if (tab === 'log') {
+    if (!st.log) el('p', 'The log book is off (Settings tab).', main); else el('pre', st.log.join(NL + NL) || 'No entries yet.', main);
+  } else if (!st.manual) el('p', 'The manual is off (Settings tab).', main);
+  else for (const s of st.manual) el('p', s, main);
+}
+
 export function runPlusWindow(doc, win = doc.defaultView) {
   const g = new URLSearchParams(win.location.search ?? '').get('g'), bc = new win.BroadcastChannel(CHANNEL), ch = { postMessage: m => bc.postMessage({ ...m, g }) }, el = (tag, text, parent) => { const n = doc.createElement(tag); if (text != null) n.textContent = text; parent?.append(n); return n; };
   let st = null, shown = '', tab = Object.hasOwn(TABS, win.location.hash.slice(1)) ? win.location.hash.slice(1) : 'help';
@@ -64,7 +90,6 @@ export function runPlusWindow(doc, win = doc.defaultView) {
     const b = el('button', label, nav); b.type = 'button'; b.dataset.tab = id; b.setAttribute('role', 'tab');
     b.onclick = () => select(id); return b;
   });
-  const list = (title, items) => { el('h2', title, main); const ul = el('ul', null, main); for (const s of items) el('li', s, ul); if (!items.length) el('li', 'None', ul); };
   const part = () => st && ({ crew: st.crew, help: st.help, settings: st.settings, log: st.log, manual: st.manual })[tab];
   const manual = () => !!st && Object.hasOwn(st.settings, 'manual');
   const state = () => JSON.stringify([tab, st?.module, manual(), part()]);
@@ -73,27 +98,7 @@ export function runPlusWindow(doc, win = doc.defaultView) {
     for (const b of buttons) { b.hidden = b.dataset.tab === 'manual' && !manual(); b.setAttribute('aria-selected', String(b.dataset.tab === tab)); }
     shown = state(); main.replaceChildren();
     if (!st) { el('p', 'Waiting for the game window…', main); return; }
-    if (tab === 'crew') el('pre', st.crew || 'No crew to show on this screen.', main);
-    else if (tab === 'help') {
-      list(`This screen (${st.module || 'starting'})`, st.help.screen); list('General keys', st.help.general); list('Additions', st.help.additions);
-    } else if (tab === 'settings') {
-      for (const [title, rows] of [['Sound', AUDIO], ['Additions', FEATURES]]) {
-        const f = el('fieldset', null, main); el('legend', title, f);
-        for (const [name, text] of Object.entries(rows)) {
-          if (!Object.hasOwn(st.settings, name)) continue;
-          const l = el('label', null, f), c = el('input', null, l); c.type = 'checkbox'; c.name = name; c.checked = !!st.settings[name];
-          c.onchange = () => ch.postMessage({ t: 'set', name, value: c.checked }); el('span', text, l);
-        }
-      }
-      const v = el('button', 'Load veteran crew', main), box = el('div', null, main); v.type = 'button'; box.hidden = true;
-      el('p', 'Replace your saved game with the veteran crew?', box);
-      const yes = el('button', 'Load', box), no = el('button', 'Cancel', box);
-      v.onclick = () => { box.hidden = false; no.focus(); }; no.onclick = () => { box.hidden = true; v.focus(); };
-      yes.onclick = () => { ch.postMessage({ t: 'veteran' }); box.hidden = true; };
-    } else if (tab === 'log') {
-      if (!st.log) el('p', 'The log book is off (Settings tab).', main); else el('pre', st.log.join('\n\n') || 'No entries yet.', main);
-    } else if (!st.manual) el('p', 'The manual is off (Settings tab).', main);
-    else for (const s of st.manual) el('p', s, main);
+    renderTab(doc, main, st, tab, m => ch.postMessage(m));
   }
   function select(id) { tab = id === 'manual' && !manual() ? 'help' : id; try { win.history.replaceState(null, '', `#${tab}`); } catch { } try { win.localStorage.setItem(LAST, tab); } catch { } render(); }
   bc.onmessage = e => {

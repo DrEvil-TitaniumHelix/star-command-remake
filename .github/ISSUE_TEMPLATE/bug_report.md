@@ -12,7 +12,7 @@ labels: bug
 
 **Save.** If you can: Esc menu → S-Save & Quit, then attach the save slot or `CHARINFO.BAS` if you can export it. Saves contain your game state only.
 
-**Browser and version** (e.g. Chrome 130 on Windows 11). Keyboard, mouse or gamepad?
+**Browser and version** (e.g. Chrome 130 on Windows 11). Keyboard or mouse?
 
 **Does the original DOS game do the same?** yes / no / don't know. If yes, it gets the "original did this too" label
 and is still useful.

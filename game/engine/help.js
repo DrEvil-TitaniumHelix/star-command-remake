@@ -49,10 +49,7 @@ export function installHelp(E) {
         if (!seen.has(key)) { seen.add(key); out.push(line); }
       }
     }
-    const general=['Gamepad: d-pad = arrows','A = ENTER / highlighted item',
-      'B = N on Y/N prompts; otherwise Esc','X = SPACE; Y = Y',
-      'LB/RB = highlight menu items','Start = Esc menu; Back = this help',
-      'Mouse: click a hotkey = press it','Esc: Resume / Save & Quit / Quit menu','Esc T: Settings; Sound, Music, Sound effects','F1: this help (Star Command Plus window)'];
+    const general=['Mouse: click a hotkey = press it','Esc: Resume / Save & Quit / Quit menu','Esc T: Settings; Sound, Music, Sound effects','F1: this help (Star Command Plus window)'];
     const additions=[];
     if (hasManual(E) && E.settings?.on('manual')) additions.push('Manual: use Manual button / screen selector');
     if (E.settings?.on('speed')) additions.push(`F2: speed (${E.speed?.label ?? 'normal'}; Speed button also cycles)`);

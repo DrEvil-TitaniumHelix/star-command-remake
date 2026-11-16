@@ -1,5 +1,48 @@
 # Changelog
 
+## v0.1.5-beta — 2026-11-16
+
+**Fixed.**
+- Espers can be recruited: with no esper in the squad, about one candidate in twenty at the Recruitment Office has
+  Esper 50 or more, as in the original. In every earlier release no candidate ever did.
+- The starport rolls its random numbers as the original does. Recruits, training results and prices no longer repeat
+  in a long session, and every roll the original can make can now come up.
+- Arithmetic is done in single precision as in the original, so results that sat one off now agree; for example
+  the chance of an encounter after a ship battle.
+- Bonus numbers on the crew and ship panels show their sign as the original does (` +5%`, ` -3%`).
+- Lines and weapon beams are drawn on the same pixels as the original's, with the dash pattern starting at the same
+  end.
+- The hit sound of two weapon animations in ground combat plays again.
+- In a ground fight the Range and Hit preview buttons sit in the top-right box, clear of the game text, and stay in
+  place while the pointer rests on them.
+- If the browser blocks the Plus window, the panel that opens in its place has the same tabs as Plus, including Crew
+  and Log book.
+- The Log book shows credits as a whole number after a bought truce.
+- The yellow mission marker no longer shows over the computer's kill list or mission text.
+- A mission briefing reads "You should go to The Bar".
+- Names given to the crew and the ship are never changed by the import's spelling corrections.
+- After a G-Switch inside a station the crew panel, the Plus Crew tab and the Log book follow the new crew order.
+- Loading a saved game from the Esc menu while the BATTLE REPORT is on screen loads the game.
+- After a ship battle the BATTLE REPORT stays on screen long enough to read; a key ends the wait.
+- The Log book writes the same sector numbers as the flight display.
+- The esper's View command shows the map flash.
+- Helper tooltips: an enemy's tooltip names the weapon it fires and shows its health; equipment tooltips work on the
+  Equip screens; the weapon price column shows whole numbers, as the original prints prices, on every row; scan
+  view letters are drawn only for ships inside the scan window.
+- After "You Are All Dead" the Esc menu no longer offers Save & Quit; Load and Quit without saving remain.
+- On the long-range and galaxy maps the ship's own marker stays visible when the ship is on a mission target.
+- The Log book no longer gains a duplicate arrival entry when a saved game is loaded after restarting the browser.
+- Spelling in game text: "Inaccessible" in the ground combat briefing, "Impersonate Deity" in the communications menu,
+  and "They will both be near the first star" in a mission briefing.
+
+**Removed.** Gamepad support. The game is played with the keyboard and the mouse.
+
+**Played through.** Sixteen of the seventeen campaign stages were played from the Headquarters briefing to the
+pay-out on this build, the last stage included. Stage 16 was not played to its end; its rules were compared with the
+original's code statement by statement.
+
+**Updating.** Copies already imported are prepared again automatically on first start; saved games are kept.
+
 ## v0.1.4-beta — 2026-11-15
 
 **Fixed.**

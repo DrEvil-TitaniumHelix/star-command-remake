@@ -3,7 +3,7 @@ import {installCombat,reachBand,preview,enemyRegions,commandPhase} from './comba
 assert.equal(reachBand(1.6999,10),2);
 assert.equal(reachBand(1.7,10),1);
 assert.equal(reachBand(2.7,10),0);
-const arrays={'GrpX!':[26,0,0,0,0,26],'GrpY!':[5,0,0,0,0,5],'GrpSize!':[1],'GrpName$':['Test'],'UnitHP!':[10],'UnitArmor!':[2],'UnitWeapon!':[0],'GrpMeleeRange!':[10],'GrpTactic!':[1],'GrpToHitMod!':[0],'Map%':Array(81).fill(1)};
+const arrays={'GrpX!':[26,0,0,0,0,26],'GrpY!':[5,0,0,0,0,5],'GrpSize!':[1],'GrpName$':['Test'],'UnitHP!':[10],'UnitArmor!':[2],'UnitWeapon!':[0],'GrpAttackVerb!':[1],'GrpMeleeRange!':[10],'GrpTactic!':[1],'GrpToHitMod!':[0],'Map%':Array(81).fill(1)};
 const E={currentModule:'PLBATTLE',moduleInstance:{V:{'K!':1,'MemberCmd!':1,'TgtGrp!':0,'Unit!':0,'NGroups!':1},A:n=>arrays[n]??[]},state:{G:new Float32Array(2601)},text:{screenText:()=>['Groups In Range: A','Command: Attack']},settings:{on:()=>true},input:{},display:{overlays:[],viewToLogical:(x,y)=>({x,y})}};
 E.state.G[1600+45]=3;
 const before=JSON.stringify({arrays,V:E.moduleInstance.V,G:[...E.state.G]});
@@ -37,18 +37,29 @@ p=preview(E);assert.equal(p.pct,10);assert.equal(p.shots,1);assert.equal(p.hits,
 assert.equal(p.lines[2],'Expected armor damage: 0.14');
 const ctx=new Proxy({},{get:(o,k)=>o[k]??(()=>{}),set:(o,k,v)=>(o[k]=v,true)});
 const snapshot=JSON.stringify({arrays,V:E.moduleInstance.V,G:[...E.state.G]});
-E.combat.togglePreview();E.input.lastDevice='gamepad';
+E.combat.togglePreview();
 E.display.overlays[0](ctx);
 assert.equal(JSON.stringify({arrays,V:E.moduleInstance.V,G:[...E.state.G]}),snapshot);
 E.settings.on=()=>false;
 E.display.overlays[0](new Proxy({},{get:()=>()=>{throw Error('disabled overlay drew');}}));
-E.currentModule='PLBATTLE';E.moduleInstance={V:{'NGroups!':1},A:n=>({...arrays,'UnitHP!':[25.73],'UnitArmor!':[2.4]})[n]??[]};E.input.lastDevice='mouse';E.settings.on=()=>true;
+E.currentModule='PLBATTLE';E.moduleInstance={V:{'NGroups!':1},A:n=>({...arrays,'UnitHP!':[25.73],'UnitArmor!':[2.4]})[n]??[]};E.settings.on=()=>true;
 E.text.screenText=()=>['Groups In Range: A','Command: Attack'];E.fb.version++;
-const gtip=E.combat.at(112,16);assert.ok(gtip.includes('Armor: 2')&&gtip.includes('Standing: 1 of 1')&&!/Tactic|HP:|\d\.\d/.test(gtip.join()),'ground tooltip: player words, whole numbers');
-E.currentModule='SPBATTLE';E.moduleInstance={V:{'NumEnemy!':1,'ViewMode!':1,'EnTactic!':3},A:n=>({'EnX!':[20],'EnY!':[10],'Hull!':[4.6],'EnArmor!':[20.2],'WeaponDmg!':[55.34]})[n]??[]};E.fb.version++;
-const stip=E.combat.at(77,74);assert.deepEqual(stip,['Enemy ship A','Hull: 5','Armor: 20','Keeps to range: 10']);
+const gtip=E.combat.at(112,16);assert.ok(gtip.includes('Armor: 2')&&gtip.includes('Standing: 1 of 1')&&gtip.includes('HP per unit: 26')&&gtip.includes('Weapon: laser')&&!/Tactic|\d\.\d/.test(gtip.join()),'ground tooltip: actual attack, health and whole numbers');
+for(const [v,w] of [[2,'claw'],[3,'sting'],[4,'bite']]){arrays['GrpAttackVerb!'][0]=v;assert.ok(E.combat.at(112,16).includes(`Weapon: ${w}`));}
+Object.assign(arrays,{'GrpSize!':[3],'UnitWeapon!':[1,2,0]});
+E.moduleInstance.A=n=>({...arrays,'UnitHP!':[12.2,25.73,0]})[n]??[];
+assert.ok(E.combat.at(112,16).includes('Weapon: rocket launcher, flame thrower'));
+assert.ok(E.combat.at(112,16).includes('HP per unit: 12-26'));
+E.moduleInstance.A=n=>({...arrays,'UnitHP!':[0,0,0]})[n]??[];
+assert.ok(E.combat.at(112,16).includes('HP per unit: 0'));assert.ok(E.combat.at(112,16).includes('Weapon: none'));
+const ships={'EnX!':[20,25],'EnY!':[10,10],'Hull!':[4.6,3],'EnArmor!':[20.2,10],'WeaponDmg!':[55.34,-30,90,0,0,0,-40,-60,20,0,0,0],'WeaponOK!':[1,2,0,1,0,0,1,1,0,0,0,0]};
+E.currentModule='SPBATTLE';E.moduleInstance={V:{'NumEnemy!':2,'ViewMode!':1,'EnTactic!':3},A:n=>ships[n]??[]};E.fb.version++;
+const stip=E.combat.at(77,74);assert.deepEqual(stip,['Enemy ship A','Hull: 5','Armor: 20','Weapons: 1 energy gun, 1 missile launcher','Keeps to range: 10']);
+assert.ok(E.combat.at(102,74).includes('Weapons: 2 missile launchers'));
+ships['WeaponOK!'].fill(0);assert.ok(E.combat.at(77,74).includes('Weapons: none'));
 let letters=0;const lctx=new Proxy({},{get:(o,k)=>k==='fillRect'?()=>letters++:o[k]??(()=>{}),set:(o,k,v)=>(o[k]=v,true)});E.text.glyphs=[];E.combat.togglePreview();
 E.display.overlays[0](lctx);assert.ok(letters>0,'ship letter drawn on the space battle visual');
+Object.assign(ships,{'EnX!':[20,33,8],'EnY!':[10,10,-4]});E.moduleInstance.V['NumEnemy!']=3;E.fb.version++;assert.ok(E.combat.at(77,74));assert.equal(E.combat.at(144,76),null,'x 33 outside the scan window');assert.equal(E.combat.at(19,6),null,'y -4 outside the scan window');
 console.log('combat boundary, expectations, gating, sprite recognition and read-only tests pass');
 
 if (process.argv.includes('--shots')) {
@@ -94,3 +105,14 @@ if (process.argv.includes('--shots')) {
   } finally {ws?.close();chrome.kill();}
 }
 
+{
+  const h={},bs=[],doc={body:{appendChild:b=>bs.push(b)},createElement:()=>({style:{},offsetWidth:70})};
+  const cv={ownerDocument:doc,addEventListener:(t,f)=>h[t]=f,getBoundingClientRect:()=>({left:0,top:0,right:640,bottom:400,width:640,height:400}),focus:o=>cv.f=o};
+  const E2={...E,currentModule:'PLBATTLE',fb:undefined,text:{screenText:()=>['Groups In Range: A','Command: Attack']},display:{...E.display,overlays:[]}};installCombat(E2,cv);const draw=()=>E2.display.overlays[0]({save(){},restore(){},fillRect(){},measureText:()=>({width:0}),fillText(){}});
+  h.mousemove({clientX:600,clientY:390});draw();assert.equal(bs[1].hidden,true);
+  h.mousemove({clientX:600,clientY:30});draw();assert.equal(bs[1].hidden,false);assert.deepEqual([bs[0].style.left,bs[0].style.top,bs[1].style.top],['558px','12px','34px']);
+  h.mouseleave({relatedTarget:bs[1]});draw();assert.equal(bs[1].hidden,false);
+  bs[1].onmouseleave({relatedTarget:bs[0]});draw();assert.equal(bs[0].hidden,false);
+  bs[0].onmouseleave({relatedTarget:null});draw();assert.equal(bs[0].hidden,true);
+  bs[0].onclick();assert.deepEqual(cv.f,{focusVisible:false});
+}

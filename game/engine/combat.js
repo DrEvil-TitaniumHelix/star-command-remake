@@ -84,7 +84,7 @@ export function enemyRegions(E) {
     } else {
       const x=arr(E,'EnX!')[i],y=arr(E,'EnY!')[i];
       if(val(E,'ViewMode!')===0) {if(x>13&&x<28&&y>3&&y<17)out.push({i,x:x*8-96,y:y*8-16,w:16,h:16});}
-      else out.push({i,x:x*5-23,y:y*5+24,w:5,h:5});
+      else if(x>=8&&x<=32&&y>=-3&&y<=23)out.push({i,x:x*5-23,y:y*5+24,w:5,h:5});
     }
   }
   return out.filter(r=>r.x>=0&&r.y>=0&&r.x+r.w<=320&&r.y+r.h<=200);
@@ -94,11 +94,12 @@ function describe(E,i) {
   if(E.currentModule==='PLBATTLE') {
     const size=arr(E,'GrpSize!')[i], units=Array.from({length:size},(_,u)=>i*5+u).filter(u=>arr(E,'UnitHP!')[u]>0);
     const kinds=[...new Set(units.map(u=>arr(E,'UnitWeapon!')[u]))];
-    return [`Group ${String.fromCharCode(65+i)}: ${arr(E,'GrpName$')[i]}`,`Standing: ${units.length} of ${size}`,`Armor: ${span(units.map(u=>arr(E,'UnitArmor!')[u]))}`,
-      `Weapon: ${kinds.map(k=>['melee','rockets','flame'][k]).join(', ')}`,`Range: ${kinds.map(k=>k===1?7:k===2?4:Math.round(arr(E,'GrpMeleeRange!')[i])).join(', ')}`];
+    return [`Group ${String.fromCharCode(65+i)}: ${arr(E,'GrpName$')[i]}`,`Standing: ${units.length} of ${size}`,`HP per unit: ${span(units.map(u=>arr(E,'UnitHP!')[u]))}`,`Armor: ${span(units.map(u=>arr(E,'UnitArmor!')[u]))}`,
+      `Weapon: ${kinds.map(k=>k===0?['','laser','claw','sting','bite'][arr(E,'GrpAttackVerb!')[i]]:['','rocket launcher','flame thrower'][k]).join(', ')||'none'}`,`Range: ${kinds.map(k=>k===1?7:k===2?4:Math.round(arr(E,'GrpMeleeRange!')[i])).join(', ')||'0'}`];
   }
-  const t=val(E,'EnTactic!');
-  return [`Enemy ship ${String.fromCharCode(65+i)}`,`Hull: ${Math.round(arr(E,'Hull!')[i])}`,`Armor: ${Math.round(arr(E,'EnArmor!')[i])}`,`Keeps to range: ${t===2?9:t===3?10:'closes in'}`];
+  const t=val(E,'EnTactic!'), weapons=Array.from({length:6},(_,s)=>i*6+s).filter(s=>arr(E,'WeaponOK!')[s]>0).map(s=>arr(E,'WeaponDmg!')[s]);
+  const counts=[weapons.filter(d=>d>0).length,weapons.filter(d=>d<0).length];
+  return [`Enemy ship ${String.fromCharCode(65+i)}`,`Hull: ${Math.round(arr(E,'Hull!')[i])}`,`Armor: ${Math.round(arr(E,'EnArmor!')[i])}`,`Weapons: ${counts.map((n,k)=>n?`${n} ${k?'missile launcher':'energy gun'}${n===1?'':'s'}`:'').filter(Boolean).join(', ')||'none'}`,`Keeps to range: ${t===2?9:t===3?10:'closes in'}`];
 }
 export function installCombat(E,canvas=E.display.canvas) {
   let pointer=null, range=false, hit=false;
@@ -106,16 +107,16 @@ export function installCombat(E,canvas=E.display.canvas) {
   const at=(x,y)=>enabled('enemyTooltips')?enemyRegions(E).filter(r=>x>=r.x&&x<r.x+r.w&&y>=r.y&&y<r.y+r.h).map(r=>describe(E,r.i))[0]??null:null;
   E.combat={at,preview:()=>enabled('hitPreview')?preview(E):null,toggleRange:()=>range=!range,togglePreview:()=>hit=!hit};
   canvas?.addEventListener('mousemove',ev=>{const r=canvas.getBoundingClientRect();pointer={x:(ev.clientX-r.left)*640/r.width,y:(ev.clientY-r.top)*400/r.height};});
-  canvas?.addEventListener('mouseleave',()=>pointer=null);
+  canvas?.addEventListener('mouseleave',ev=>{if(!buttons.some(o=>o.b===ev.relatedTarget))pointer=null;});
   const doc=canvas?.ownerDocument, buttons=[];
   if(doc?.body) for(const [label,key,toggle] of [['Range','rangeOverlay',E.combat.toggleRange],['Hit preview','hitPreview',E.combat.togglePreview]]) {
-    const b=doc.createElement('button');b.textContent=label;b.type='button';b.hidden=true;Object.assign(b.style,{position:'fixed',zIndex:'11',fontSize:'11px'});b.onclick=()=>{toggle();canvas.focus?.();};doc.body.appendChild(b);buttons.push({b,key});
+    const b=doc.createElement('button');b.textContent=label;b.type='button';b.hidden=true;Object.assign(b.style,{position:'fixed',zIndex:'11',fontSize:'11px'});b.onmousedown=ev=>ev.preventDefault();b.onmouseleave=ev=>{if(ev.relatedTarget!==canvas&&!buttons.some(o=>o.b===ev.relatedTarget))pointer=null;};b.onclick=()=>{toggle();canvas.focus?.({focusVisible:false});};doc.body.appendChild(b);buttons.push({b,key});
   }
   E.display.overlays.push(ctx=>{
     const phase=commandPhase(E),pb=E.currentModule==='PLBATTLE';
     for(const [i,{b,key}] of buttons.entries()) {
-      b.hidden=!phase||!enabled(key)||(key==='rangeOverlay'&&!pb)||!pointer||pointer.x<520||pointer.y<360;
-      const rect=canvas.getBoundingClientRect();b.style.left=`${rect.right-110}px`;b.style.top=`${rect.bottom-44+i*22}px`;
+      b.hidden=!phase||!enabled(key)||(key==='rangeOverlay'&&!pb)||!pointer||pointer.x<520||pointer.y>60;
+      const rect=canvas.getBoundingClientRect();b.style.left=`${rect.left+rect.width*628/640-b.offsetWidth}px`;b.style.top=`${rect.top+rect.height*12/400+i*22}px`;
     }
     if(phase&&pb&&range&&enabled('rangeOverlay')) {
       const m=val(E,'K!'),slot=crew(E,m,32),reach=slot?g(E,slot*12+798):10;
@@ -127,10 +128,7 @@ export function installCombat(E,canvas=E.display.canvas) {
     if(!enabled('enemyTooltips'))return;
     if(E.currentModule==='SPBATTLE'&&E.moduleInstance&&val(E,'ViewMode!')!==0)for(const r of enemyRegions(E)){ctx.fillStyle=UI.bg;ctx.fillRect((r.x+r.w)*2,r.y*2-2,18,20);drawText(ctx,E,String.fromCharCode(65+r.i),(r.x+r.w)*2+1,r.y*2,UI.key,2);}
     let tip;
-    const h=E.input.highlight;
-    if(h&&E.input.lastDevice==='gamepad')tip=at((h.col-1)*8,(h.row-1)*8);
-    if(!tip&&phase&&E.input.lastDevice==='gamepad')tip=describe(E,val(E,pb?'TgtGrp!':'ShieldNo!'));
-    if(E.input.lastDevice!=='gamepad'&&pointer){const p=E.display.viewToLogical(pointer.x,pointer.y);tip=at(p.x,p.y);}
-    if(tip)drawPanel(ctx,E,pointer&&E.input.lastDevice!=='gamepad'?pointer.x+12:0,pointer&&E.input.lastDevice!=='gamepad'?pointer.y+12:0,tip,{scale:1});
+    if(pointer){const p=E.display.viewToLogical(pointer.x,pointer.y);tip=at(p.x,p.y);}
+    if(tip)drawPanel(ctx,E,pointer.x+12,pointer.y+12,tip,{scale:1});
   });
 }

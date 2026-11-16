@@ -151,14 +151,14 @@ export function attachPointer(E,canvas,win=typeof window!=='undefined'?window:nu
   canvas.style.cursor='default';
   canvas.addEventListener('mousemove',e=>{
     if(E.settings?.on('mouse') === false) {canvas.style.cursor='default';return;}
-    E.input.lastDevice='mouse';const {x,y}=point(e);
+    const {x,y}=point(e);
     canvas.style.cursor=E.input.modal||hit(x,y)?'pointer':'default';
   });
   canvas.addEventListener('mouseleave',()=>{canvas.style.cursor='default';});
   canvas.addEventListener('click',e=>{
     if(e.button!==undefined&&e.button!==0) return;
     if(E.settings?.on('mouse') === false) {canvas.style.cursor='default';return;}
-    E.input.lastDevice='mouse';const {x,y}=point(e);
+    const {x,y}=point(e);
     if(E.input.modal) {E.input.modal.click(x,y);return;}
     if(E.manual?.isOpen) {e.preventDefault();return;}
     const r=hit(x,y);if(r) {e.preventDefault();E.input.device(r.key);}

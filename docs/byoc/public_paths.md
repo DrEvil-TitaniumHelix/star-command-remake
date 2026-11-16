@@ -40,7 +40,7 @@ addresses; they also record the local path of the original), `decode/data/sprite
 B4), `acceptance/ref/font_dosbox_ega8x8.json` (DOSBox's EGA font capture, not game material),
 `acceptance/ref/scripts/tmpl/inputname.{md5,geom}` (an MD5 and a geometry of a screen region, no pixels),
 `acceptance/veteran/run.log` and `plan.txt` (test logs with screen text - B4), all pseudocode
-(`decode/pseudo/**`, quoting game text is allowed by SC-3), the engine, `game/byoc/**`, tools, plans, herdr/.
+(`decode/pseudo/**`, quoting game text is allowed by SC-3), the engine, `game/byoc/**`, tools and plans.
 
 **Hex dumps of original bytes in kept files (for B4, not decided here).** Lines with >= 4 space-separated hex
 byte pairs, per file (count of lines):

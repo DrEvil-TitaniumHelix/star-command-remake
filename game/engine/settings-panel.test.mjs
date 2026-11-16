@@ -38,7 +38,8 @@ d.canvas.fire('click', { clientX: 4, clientY: 4 }); assert.equal(E.input.inkey()
 assert.equal(E.settingsPanel.isOpen(), true);
 let panel = d.doc.getElementById('settings-panel'), title = panel.children[0];
 const row = panel.find(n => n.name === 'manual').parent;
-assert.equal(row.hidden, true); assert(!panel.all(n => n.attrs.role === 'tab').some(n => n.textContent === 'Manual'));
+assert.equal(row.hidden, true); const manualTab = panel.find(n => n.attrs.role === 'tab' && n.textContent === 'Manual'); assert.equal(manualTab.hidden, true);
+assert.deepEqual(panel.all(n => n.attrs.role === 'tab').map(n => n.textContent), ['Crew', 'Help', 'Settings', 'Log book', 'Manual']);
 E.manual = { data: { screens: { 'SP-01': {} } } }; E.settingsPanel.open(); assert.equal(row.hidden, false);
 E.settings.set('manual', false); E.settingsPanel.open(); assert.equal(row.hidden, false);
 E.manual.missing = true; E.display.frameHooks.forEach(f => f()); assert.equal(row.hidden, true);

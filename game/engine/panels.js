@@ -3,9 +3,12 @@ const whole = new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 });
 export const logLines = entries => entries.map(e => `[${e.kind}] ${e.text.replace(/[+-]?(?:\d+(?:,\d{3})*(?:\.\d+)?|(?<![\w.])\.\d+)(?:e[+-]?\d+)?/gi,
   n => (n[0] === '+' ? '+' : '') + whole.format(Number(n.replaceAll(',', ''))))}`);
 export function crewStatus(E) {
-  const G = E.state.G, names = E.state.str('CrewName$'), ref = E.crewNames, key = names.slice(1,9).join('|');
+  const G = E.state.G, names = E.state.str('CrewName$'), key = names.slice(1,9).join('|');
   const inner = ['PLBATTLE','INSIDE'].includes(E.currentModule), now = E.timer?.clock?.() ?? Date.now();
+  let ref = E.crewNames;
   if (E.crewSeen?.key !== key) E.crewSeen = {key, t: now};
+  const srt = a => a.slice(1,9).sort().join('|');
+  if (inner && ref && now - E.crewSeen.t >= 500 && srt(names) === srt(ref) && key !== ref.slice(1,9).join('|')) E.crewNames = ref = [names[0], names[7], names[8], ...names.slice(1,7)];
   const back = ref?.slice(1,9).join('|'), moved = ref && [...ref.slice(3,9), ref[1], ref[2]].join('|');
   if (inner && ref && key !== back && key !== moved && E.crewLast) return E.crewLast;
   const shifted = inner && key !== back;
@@ -88,8 +91,10 @@ export function installPanels(E) {
       E.state.str('CrewName$').slice(1,9).every(n=>!n)) {
       entries=[];previous=undefined;lastScreen='';lastModule=mod;newGamePending=false;
     }
+    if(!mod || ['STARTUP','STARCOMM'].includes(mod)){previous=undefined;lastModule=undefined;lastScreen='';return;}
     if (!enabled('logBook')) {previous=undefined;lastModule=E.currentModule;lastScreen='';return;}
-    const now={credits:G[78]*30000+G[79], crew:crewStatus(E), medals:Array.from(G.slice(100,110))};
+    lastModule ??= mod;
+    const now={credits:Math.round(G[78]*30000+G[79]), crew:crewStatus(E), medals:Array.from(G.slice(100,110))};
     if (previous) {
       if(now.credits!==previous.credits)add('credits',`Credits ${now.credits} (${now.credits-previous.credits>=0?'+':''}${now.credits-previous.credits})`);
       const unmatched=previous.crew.slice();
@@ -105,7 +110,7 @@ export function installPanels(E) {
       now.medals.forEach((v,i)=>{if(v===1 && previous.medals[i]!==1)add('medal',`${i===9?'Medal of Honor':'Special bonus'} earned (flag ${100+i})`);});
     }
     if(mod!==lastModule){
-      add('arrival',`${lastModule || 'Start'} → ${mod} (sector ${G[2216]}, ${G[2217]})`);
+      add('arrival',`${lastModule || 'Start'} → ${mod} (sector ${G[2216]+1}, ${32-G[2217]})`);
       if(/^(?:PLBATTLE|SPBATTLE)$/.test(lastModule))add('battle',`${lastModule} cumulative counters: kills ${G[313]}, tonnage ${G[315]}${lastModule==='PLBATTLE'?`, won ${G[2254]}`:''}`);
       lastModule=mod;
     }
@@ -118,7 +123,7 @@ export function installPanels(E) {
   };
   E.logbook={observe, entries:copy, checkpoint:copy,
     persist(point=entries){if(enabled('logBook'))E.files.write('LOGBOOK',new TextEncoder().encode(JSON.stringify(point)));},
-    restore(point){entries=(point??[]).map(e=>({...e}));previous=undefined;newGamePending=false;},
+    restore(point){entries=(point??[]).map(e=>({...e}));previous=undefined;lastModule=undefined;lastScreen='';newGamePending=false;},
     open(){if(enabled('logBook') && !E.input.modal && journal) {journal.hidden=false;renderLog();}},
     close(){if(journal)journal.hidden=true;}};
   if(E.chain){const chain=E.chain;E.chain=(...args)=>{

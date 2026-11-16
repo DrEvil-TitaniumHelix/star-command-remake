@@ -1,6 +1,36 @@
 import assert from 'node:assert/strict';
 import {crewStatus,shipStatus,battleReport,installPanels,logLines} from './panels.js';
 import {dom} from './settings-panel.fixture.mjs';
+for (const restore of [false, true]) for (const point of [[], [
+ {kind:'arrival',text:'Start → STARCOMM (sector 0, 0)'},
+ {kind:'credits',text:'Credits 95000 (+95000)'},
+ {kind:'arrival',text:'STARCOMM → STARPORT (sector 28, 2)'}
+]]) {
+ const g=new Float32Array(2601), names=['','Ada'], d=dom(), files=new Map();
+ const bytes=new TextEncoder().encode(JSON.stringify(point));
+ if(!restore)files.set('LOGBOOK',bytes);
+ const engine={currentModule:restore?'SPACE':undefined,state:{G:g,str:()=>names},settings:{on:()=>true},
+  files:{saved:n=>files.get(n),write:(n,b)=>files.set(n,b)},text:{screenText:()=>[]},input:{},display:{canvas:d.canvas,frameHooks:[]}};
+ const book=installPanels(engine);
+ if(restore){book.observe();engine.currentModule='PLBATTLE';book.restore(point);}
+ engine.currentModule='STARCOMM';book.observe();
+ g[78]=3;g[79]=5000;g[2216]=28;g[2217]=2;g[1431]=1;book.observe();
+ engine.currentModule='STARPORT';book.observe();book.observe();book.open();
+ assert.deepEqual(book.entries(),point,'loading adds no arrival, credit or death entries');
+ assert.equal(d.doc.getElementById('log-book').find(n=>n.tagName==='PRE').textContent,
+  logLines(point).join('\n\n')||'No entries yet.','visible log survives browser startup and slot restore');
+ book.persist();assert.deepEqual(files.get('LOGBOOK'),bytes,'loading preserves serialized entries');
+ g[79]-=25;book.observe();engine.currentModule='SPACE';book.observe();
+ assert.deepEqual(book.entries().slice(point.length),[
+  {kind:'credits',text:'Credits 94975 (-25)'},
+  {kind:'arrival',text:'STARPORT → SPACE (sector 29, 30)'}],'play after loading still records real changes in flight coordinates');
+ for(const [x,y,want] of [[0,0,'1, 32'],[31,31,'32, 1'],[28,2,'29, 30']]){
+  g[2216]=x;g[2217]=y;engine.currentModule='STARPORT';book.observe();engine.currentModule='SPACE';book.observe();
+  assert.deepEqual(book.entries().slice(-2).map(e=>e.text),[`SPACE → STARPORT (sector ${want})`,`STARPORT → SPACE (sector ${want})`]);
+  assert.deepEqual([g[2216],g[2217]],[x,y],'arrival logging preserves stored coordinates');
+ }
+}
+console.log('panels: visible log survives browser startup and slot restore without phantom entries');
 const G=new Float32Array(2601), strings={'CrewName$':['','Pilot','Comms','Ada'], 'WeaponName$':['Laser']};
 const saved=new Map(), flags={crewPanel:true,logBook:true};
 let rows=['Mission briefing: Find the station.'];
@@ -44,6 +74,9 @@ assert.deepEqual(log.entries(),checkpoint);assert.deepEqual(JSON.parse(new TextD
   g[1831]=1;rev();engine.currentModule='SPACE';book.observe();engine.currentModule='INSIDE';fwd();
  }
  assert.deepEqual(deaths(),['Charlie died','Charlie died'],'names moved back before CHAIN: only the dead member, once per fight');
+ names=un.slice();engine.currentModule='SPACE';book.observe();engine.currentModule='INSIDE';fwd();sw(1,2);g[1615]=4;g[1715]=3;ms+=600;book.observe();
+ {const c=crewStatus(engine);assert.deepEqual([c[2].name,c[2].hp,c[3].name,c[3].hp],['Baker',4,'Able',3],'G-Switch inside: new order taken');}
+ g[1615]=7;{const c=crewStatus(engine);assert.deepEqual([c[2].name,c[2].hp,c[0].name],['Baker',7,'Pilot'],'live after G-Switch');}
 }
 console.log('panels: crew, ammo, stamina, ship, journal deltas, checkpoint persistence, off and read-only checks pass');
 

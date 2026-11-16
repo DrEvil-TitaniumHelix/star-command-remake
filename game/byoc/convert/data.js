@@ -2,8 +2,43 @@ import { TEXT, BIN_MBF, BIN_INT, DISK_FILES } from './lists.js';
 import { dumps, utf8, PyFloat } from './pyjson.js';
 
 const latin1 = (b) => { let s = ''; for (let i = 0; i < b.length; i++) s += String.fromCharCode(b[i]); return s; };
-const fixes = [[/\bcoridor\b/gi, (s) => s.slice(0, 3) + s[2] + s.slice(3)]];
-const textBytes = (b) => {
+const fixes = [
+  [/friends at the bar are appartly ignoring him\. /g, 'friends at the bar     apparently ignore him. '],
+  [/budies      /g, 'buddies     '],
+  [/reptillian      /g, 'reptilian       '],
+  [/reptillian  /g, 'reptilian   '],
+  [/searching secrets an   /g, 'searching secretes an  '],
+  [/coccoon-like  /g, 'cocoon-like   '],
+  [/the makes you /g, 'that makes you'],
+  [/stange looking output  /g, 'strange looking output '],
+  [/conciousness, your typeis a slightly          /g, 'consciousness, your    type is a slightly     '],
+  [/you face\.              /g, 'your face.             '],
+  [/dectectors   /g, 'detectors    '],
+  [/immeadiately begins to /g, 'immediately begins to  '],
+  [/unweildly to carry\.    /g, 'unwieldy to carry.     '],
+  [/pops out of the hold in/g, 'pops out of the hole in'],
+  [/screen in     blank/g, 'screen is     blank'],
+  [/enginless around         /g, 'engineless around        '],
+  [/rendevous with\.   /g, 'rendezvous with.  '],
+  [/They will both near the first starin sector \(27,26\)\.                /g, 'They will both be near the first'.padEnd(34) + 'star in sector (27,26).'.padEnd(34)],
+  [/rendevous point at star 4 in      /g, 'rendezvous point at star 4 in     '],
+  [/villans, and try to    /g, 'villains, and try to   '],
+  [/You should go theThe Bar/g, 'You should go to The Bar'],
+  [/Destroy the nuclear fision controlcomputer\. This will start a chain /g, 'Destroy the nuclear fission       control computer to start a chain '],
+  ...[
+    ['coridor', 'corridor'], ['sceret', 'secret'], ['existance', 'existence'],
+    ['anomoly', 'anomaly'], ['tounge', 'tongue'], ['unweildly', 'unwieldy'],
+    ['speckels', 'speckles'], ['mammilian', 'mammalian'], ['manuvering', 'maneuvering'],
+    ['gernade', 'grenade'], ['skum', 'scum'], ['reptillian', 'reptilian'],
+    ['antihixotropic', 'antithixotropic'], ['appartly', 'apparently'], ['budies', 'buddies'],
+    ['coccoon', 'cocoon'], ['stange', 'strange'], ['conciousness', 'consciousness'],
+    ['dectectors', 'detectors'], ['immeadiately', 'immediately'], ['enginless', 'engineless'],
+    ['rendevous', 'rendezvous'], ['villans', 'villains'], ['fision', 'fission'],
+    ['algea', 'algae'], ['coccoons', 'cocoons'], ["mens'", "men's"],
+  ].map(([a, b]) => [new RegExp('\\b' + a + '(?!\\w)', 'gi'), (s) => s === s.toUpperCase() ? b.toUpperCase() : s[0] === s[0].toUpperCase() ? b[0].toUpperCase() + b.slice(1) : b]),
+];
+const textBytes = (name, b) => {
+  if (name === 'CHARNAME') return b;
   const s = latin1(b), t = fixes.reduce((s, [re, to]) => s.replace(re, to), s);
   return t === s ? b : Uint8Array.from(t, (c) => c.charCodeAt(0));
 };
@@ -86,7 +121,7 @@ export function bsaveBody(data) {
 }
 
 export function convertText(name, data) {
-  const r = new InputReader(textBytes(data));
+  const r = new InputReader(textBytes(name, data));
   const rep = (n, f) => Array.from({ length: n }, f);
   if (name === 'NAME' || name === 'CHARNAME') {
     const fields = [];
@@ -142,7 +177,7 @@ export const tableStem = (name) => (name.endsWith('.BAS') ? name.slice(0, name.l
 
 export function* convertData(read) {
   for (const name of DISK_FILES) {
-    const b = read(name), data = TEXT.includes(name) ? textBytes(b) : b;
+    const b = read(name), data = TEXT.includes(name) ? textBytes(name, b) : b;
     yield { path: `files/${name}`, bytes: data };
     const obj = convertFile(name, data);
     if (obj) yield { path: `data/${tableStem(name)}.json`, bytes: utf8(dumps(obj, { separators: [',', ':'], ensureAscii: false })), table: obj };

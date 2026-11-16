@@ -1,5 +1,6 @@
 import { FEATURES, AUDIO } from './settings.js';
 import { hasManual } from './manual.js';
+import { TABS, snapshot, handle, renderTab } from './plus.js';
 
 const KEY = 'starcommand:settings-position';
 
@@ -23,24 +24,22 @@ export function installSettingsPanel(E, changed = () => {}) {
   title.append(heading, closeButton);
   tabs.className = 'settings-tabs'; tabs.setAttribute('role', 'tablist'); help.className = 'settings-body'; help.hidden = true;
   let tab = 'settings', manualRow;
-  const sync = () => { if (manualRow) manualRow.hidden = !hasManual(E); };
-  const tabButtons = [['help', 'Help'], ['settings', 'Settings']].map(([id, text]) => {
+  const tabButtons = Object.entries(TABS).map(([id, text]) => {
     const b = button(text, () => show(id)); b.setAttribute('role', 'tab'); tabs.append(b); return [id, b];
   });
+  let shown = '', at = 0;
+  const sync = () => { const m = hasManual(E); if (manualRow) manualRow.hidden = !m; tabButtons.find(([t]) => t === 'manual')[1].hidden = !m; if (!m && tab === 'manual') show('help'); };
   function renderHelp() {
-    const s = E.help?.sections?.(); if (!s) return;
-    help.textContent = '';
-    for (const [name, rows] of [[`This screen (${E.currentModule ?? ''})`, s.screen], ['General keys', s.general], ['Additions', s.additions]]) {
-      help.append(el('strong', name)); const ul = el('ul'); for (const r of rows) ul.append(el('li', r)); help.append(ul);
-    }
+    const st = snapshot(E), k = JSON.stringify([tab, st]); if (k === shown) return;
+    shown = k; help.replaceChildren(); renderTab(doc, help, st, tab, m => handle(E, m, () => {}));
   }
   function show(id) {
-    tab = id; help.hidden = id !== 'help'; body.hidden = footer.hidden = id === 'help';
-    for (const [t, b] of tabButtons) b.setAttribute('aria-selected', String(t === id));
-    if (id === 'help') renderHelp();
+    tab = id === 'manual' && !hasManual(E) ? 'help' : id; help.hidden = tab === 'settings'; body.hidden = footer.hidden = tab !== 'settings';
+    for (const [t, b] of tabButtons) b.setAttribute('aria-selected', String(t === tab));
+    shown = ''; if (tab !== 'settings') renderHelp();
     if (!panel.hidden) place();
   }
-  E.display?.frameHooks?.push(() => { sync(); if (!panel.hidden && tab === 'help') renderHelp(); });
+  E.display?.frameHooks?.push(t => { sync(); if (!panel.hidden && tab !== 'settings' && !(t - at < 250)) { at = t; renderHelp(); } });
   const controls = new Map();
   function apply(name, value) {
     E.settings.set(name, value); changed(name); if (controls.has(name)) controls.get(name).checked = E.settings.on(name);

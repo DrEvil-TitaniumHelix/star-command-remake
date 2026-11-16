@@ -1,6 +1,7 @@
 import { flow } from './starport/flow.js';
-import { str$, val as bval, cint } from '../engine/basic.js';
+import { str$, val as bval, cint, using } from '../engine/basic.js';
 import { Files } from '../engine/files.js';
+import { floatToMbf } from '../engine/state.js';
 import { mark, held } from './space/hold.js';
 
 export const screens = ['PT-00', 'PT-01', 'PT-01m', 'PT-02', 'PT-03', 'PT-04', 'PT-05', 'PT-06', 'PT-07', 'PT-08',
@@ -96,7 +97,7 @@ class Runtime {
     this.buf = { Logo: { bank: 'LOGO.BAS', index: 0 } };
     this.idle = false; this.spin = 0;
     this.dataPtr = 0;
-    this.rndSeed = 0x50000;
+    this.rndSeed = 5;
     this.file = null;
     this.script = [];
     this.devJump = 0;
@@ -125,10 +126,11 @@ class Runtime {
     else await this.wait(n * LOOP_FACTOR / (this.G[GI.StdDelay] || 188));
   }
 
-  rnd() { this.rndSeed = (this.rndSeed * 0x43FD43FD + 0xC39EC3) % 0x1000000; return this.rndSeed / 0x1000000; }
+  rnd() { this.rndSeed = (this.rndSeed * 0x343FD + 0x1A9EC3) % 0x1000000; return this.rndSeed / 0x1000000; }
   randomize(t) {
     if (this.E.devSeed !== undefined) t = this.E.devSeed;
-    this.rndSeed = (Math.floor(t * 100) * 0x10001) % 0x1000000;
+    const b = new Uint8Array(4); floatToMbf(fr(t), b);
+    this.rndSeed = (this.rndSeed & 0xff) | ((((b[0] | (b[1] << 8)) ^ (b[2] | (b[3] << 8))) & 0xffff) << 8);
   }
   read(isStr) {
     const v = DATA[this.dataPtr++];
@@ -225,18 +227,6 @@ class Runtime {
     return { chain: mod };
   }
   end() { return this.E.end ? this.E.end() : { end: true }; }
-}
-
-export function using(fmt, v) {
-  v = fr(v);
-  const plus = fmt.startsWith('+');
-  const body = plus ? fmt.slice(1) : fmt;
-  const dot = body.indexOf('.');
-  const dec = dot < 0 ? 0 : body.length - dot - 1;
-  let s = Math.abs(v).toFixed(dec);
-  const sign = v < 0 && parseFloat(s) !== 0 ? '-' : (plus ? '+' : '');
-  s = sign + s;
-  return s.length > fmt.length ? '%' + s : s.padStart(fmt.length, ' ');
 }
 
 export default async function starport(E, opts = {}) {

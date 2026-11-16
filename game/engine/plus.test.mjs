@@ -50,6 +50,10 @@ assert.equal(features({ x: 'bad' }, {}), 'popup,resizable,width=440,height=600,l
 
 d.key('F1'); assert.equal(E.help.isOpen(), true); assert.equal(E.settingsPanel.tab, 'help');
 d.key('Escape'); assert.equal(E.help.isOpen(), false); assert.equal(E.input.modal, null);
+d.key('F1'); { const fp = d.doc.getElementById('settings-panel'), t = l => fp.find(n => n.attrs.role === 'tab' && n.textContent === l);
+  E.settings.set('logBook', true); t('Log book').fire('click'); assert.equal(E.settingsPanel.tab, 'log'); assert(fp.find(n => n.tagName === 'PRE' && n.textContent === '[arrival] Start → STARPORT'));
+  t('Crew').fire('click'); assert.equal(E.settingsPanel.tab, 'crew'); assert(fp.find(n => n.tagName === 'PRE' && n.textContent === 'No crew to show on this screen.')); }
+d.key('Escape'); assert.equal(E.settingsPanel.isOpen(), false);
 d.key('F1'); E.settingsPanel.open('settings'); assert.equal(E.settingsPanel.isOpen(), true);
 d.key('Escape'); assert.equal(E.settingsPanel.isOpen(), false); assert.equal(E.help.isOpen(), false); assert.equal(E.input.modal, null);
 d.key('Escape'); assert.notEqual(E.input.modal, null); d.key('r'); assert.equal(E.input.modal, null);

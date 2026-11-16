@@ -21,26 +21,18 @@ export function keyCode(e) {
   return null;
 }
 
-const PAD = { A: 0, B: 1, X: 2, Y: 3, LB: 4, RB: 5, BACK: 8, START: 9, UP: 12, DOWN: 13, LEFT: 14, RIGHT: 15 };
-const REPEAT_DELAY = 400, REPEAT_RATE = 120;
-
 export class Input {
   constructor() {
     this.queue = [];
     this.waiters = [];
     this.menu = null;
     this.menuSel = 0;
-    this.highlight = null;
     this.text = null;
-    this.lastDevice = 'keyboard';
-    this.padPrev = new Map();
     this.modal = null;
     this.onDeviceEscape = null;
     this.onDeviceHelp = null;
     this.hotkeys = new Map();
   }
-
-  helpAvailable() { return !!this.onDeviceHelp && (this.onDeviceHelp.enabled?.() ?? true); }
 
   attach(target = window) {
     target.addEventListener('keydown', (e) => {
@@ -48,7 +40,6 @@ export class Input {
       if (k === null) return;
       if (k === KEY.TAB && !this.modal && target.document?.getElementById?.('settings-panel')?.hidden === false) return;
       e.preventDefault();
-      this.lastDevice = 'keyboard';
       this.device(k);
     });
   }
@@ -99,30 +90,6 @@ export class Input {
   setMenu(items, opts = {}) { this.menu = { items, arrows: !!opts.arrows }; this.menuSel = 0; }
   clearMenu() { this.menu = null; }
 
-  pollGamepads(now) {
-    const pads = navigator.getGamepads ? navigator.getGamepads() : [];
-    const pad = [...pads].find((p) => p && p.connected);
-    if (!pad) return;
-    const b = (i) => !!(pad.buttons[i] && pad.buttons[i].pressed);
-    const ax = pad.axes || [];
-    const state = {
-      A: b(PAD.A), B: b(PAD.B), X: b(PAD.X), Y: b(PAD.Y), LB: b(PAD.LB), RB: b(PAD.RB),
-      BACK: b(PAD.BACK), START: b(PAD.START),
-      UP: b(PAD.UP) || ax[1] < -0.5, DOWN: b(PAD.DOWN) || ax[1] > 0.5,
-      LEFT: b(PAD.LEFT) || ax[0] < -0.5, RIGHT: b(PAD.RIGHT) || ax[0] > 0.5,
-      RUP: ax[3] < -0.5, RDOWN: ax[3] > 0.5,
-    };
-    for (const [id, down] of Object.entries(state)) {
-      const prev = this.padPrev.get(id) || { down: false, next: 0 };
-      const repeatable = ['UP', 'DOWN', 'LEFT', 'RIGHT', 'LB', 'RB', 'RUP', 'RDOWN'].includes(id);
-      if (down && (!prev.down || (repeatable && now >= prev.next))) {
-        this.lastDevice = 'gamepad';
-        this.padButton(id);
-        this.padPrev.set(id, { down: true, next: now + (prev.down ? REPEAT_RATE : REPEAT_DELAY) });
-      } else if (!down) this.padPrev.set(id, { down: false, next: 0 });
-    }
-  }
-
   menuItems() {
     if (this.menu?.items.length) return this.menu.items;
     if (!this.text) return [];
@@ -134,46 +101,5 @@ export class Input {
       }
     });
     return items;
-  }
-
-  yesNoPrompt() { return !!this.text && this.text.screenText().some((l) => /\((?:Y\/N|y\/n)\)/.test(l)); }
-
-  padButton(id) {
-    if (this.modal) {
-      this.highlight = null;
-      if (id === 'LB' || id === 'RB' || id === 'RUP' || id === 'RDOWN') return;
-    }
-    if (id === 'LB' || id === 'RB' || id === 'RUP' || id === 'RDOWN') {
-      const items = this.menuItems();
-      if (!items.length) { this.highlight = null; return; }
-      const d = id === 'LB' || id === 'RUP' ? -1 : 1;
-      const cur = this.highlight ? items.findIndex((it) => it.key === this.highlight.key && it.row === this.highlight.row) : -1;
-      this.highlight = items[cur < 0 ? (d > 0 ? 0 : items.length - 1) : (cur + d + items.length) % items.length];
-      return;
-    }
-    if (id === 'A' && this.highlight) {
-      const still = this.menuItems().some((it) => it.key === this.highlight.key && it.row === this.highlight.row);
-      const k = this.highlight.key;
-      this.highlight = null;
-      if (still) { this.device(k); return; }
-    }
-    if (id === 'B') { this.device(this.yesNoPrompt() && !this.modal ? 'N' : KEY.ESC); return; }
-    this.highlight = null;
-    const map = {
-      A: KEY.ENTER, START: this.onDeviceEscape ? KEY.ESC : KEY.ENTER, BACK: this.helpAvailable() ? KEY.F1 : KEY.ESC, X: KEY.SPACE, Y: 'Y',
-      UP: KEY.UP, DOWN: KEY.DOWN, LEFT: KEY.LEFT, RIGHT: KEY.RIGHT,
-    };
-    if (map[id]) this.device(map[id]);
-  }
-
-  overlay(ctx) {
-    if (!this.highlight || this.lastDevice !== 'gamepad') return;
-    if (!this.menuItems().some((x) => x.key === this.highlight.key && x.row === this.highlight.row)) { this.highlight = null; return; }
-    const it = this.highlight;
-    ctx.save();
-    ctx.strokeStyle = '#ffff55';
-    ctx.lineWidth = 2;
-    ctx.strokeRect(16 * (it.col - 1) - 2, 16 * (it.row - 1) - 1, 16 * it.len + 4, 18);
-    ctx.restore();
   }
 }

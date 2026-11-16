@@ -32,8 +32,6 @@ export async function boot(canvas, { assets = 'assets/', options = {}, storage }
   const display = new Display(canvas, fb);
   const input = new Input();
   input.attach(window);
-  display.frameHooks.push((t) => input.pollGamepads(t));
-  display.overlays.push((ctx) => input.overlay(ctx));
   const text = new Text(fb, font);
   input.text = text;
   display.overlays.push((ctx) => text.drawCursor(ctx, EGA_RGB[fb.attr2ega[text.fgAttr]]));

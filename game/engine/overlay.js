@@ -35,7 +35,7 @@ export function installEscape(E) {
     if (restartPending) { restartPending = false; throw new ChainSignal('STARCOMM'); }
   };
   installSettingsPanel(E, name => { if (name === 'noChallenge') protectionOverride = undefined; });
-  let active = false, quitting = false, selected = 0, note = '', checkpoint, priorModal, ask = null, failAt = -1e9;
+  let active = false, quitting = false, dead = false, selected = 0, note = '', checkpoint, priorModal, ask = null, failAt = -1e9;
   let release, gate, pausedAt = 0, elapsed = 0, audioWasRunning = false;
   let wallAt = 0, wallPaused = 0;
   const wall = () => (active ? wallAt : performance.now()) - wallPaused;
@@ -121,7 +121,7 @@ export function installEscape(E) {
     if (l.length && (l[l.length - 1] + ' ' + w).length <= 32) l[l.length - 1] += ' ' + w; else l.push(w);
     return l;
   }, []);
-  const labels = () => ['R-Resume', 'S-Save & Quit', 'Q-Quit without saving', 'T-Settings', ...(E.slots?.enabled() ? ['L-Load'] : [])];
+  const labels = () => ['R-Resume', ...(!dead ? ['S-Save & Quit'] : []), 'Q-Quit without saving', 'T-Settings', ...(E.slots?.enabled() ? ['L-Load'] : [])];
   function letters(ctx, value, x, y, color = '#ffffff') {
     ctx.fillStyle = color;
     for (const ch of value) {
@@ -139,8 +139,8 @@ export function installEscape(E) {
       wrap(FAIL).forEach((s, i) => letters(ctx, s, 64, 14 + i * 18, '#ffff55')); ctx.restore();
     }
     if (!active) return;
-    ctx.save(); ctx.fillStyle = '#000000'; ctx.fillRect(48, 96, 544, E.slots?.enabled() ? 288 : 248);
-    ctx.strokeStyle = '#55ffff'; ctx.strokeRect(49, 97, 542, E.slots?.enabled() ? 286 : 246);
+    ctx.save(); ctx.fillStyle = '#000000'; ctx.fillRect(48, 96, 544, labels().length * 40 + 88);
+    ctx.strokeStyle = '#55ffff'; ctx.strokeRect(49, 97, 542, labels().length * 40 + 86);
     if (quitting === 'closed') {
       letters(ctx, 'You can close this window.', 96, 192);
       letters(ctx, 'Enter - play again', 96, 232);
@@ -150,7 +150,7 @@ export function installEscape(E) {
         if (selected === i) { ctx.fillStyle = '#0000aa'; ctx.fillRect(64, 120 + i * 40, 512, 32); }
         letters(ctx, s, 80, 128 + i * 40);
       });
-      ctx.save(); ctx.translate(64, E.slots?.enabled() ? 352 : 312);
+      ctx.save(); ctx.translate(64, labels().length * 40 + 152);
       const ls = wrap(note);
       ls.forEach((s, i) => letters(ctx, s, 0, (i + 1 - ls.length) * 18, '#ffff55')); ctx.restore();
     }
@@ -200,15 +200,16 @@ export function installEscape(E) {
   }
   const confirm = (lines, yes) => { if (lose()) ask = { lines, yes }; else yes(); };
   function choose(i) {
-    if (i === 4) { if (E.slots?.enabled()) confirm(['Loading replaces the', 'game in progress.', 'Load anyway? (Y/N)'], () => E.slots.openLoad()); }
-    else if (i === 3) { resume(); if (!E.plus?.open('settings')) E.settingsPanel?.open('settings'); }
-    else if (i === 0) resume();
-    else if (i === 1) {
+    if (i === 'L') { if (E.slots?.enabled()) confirm(['Loading replaces the', 'game in progress.', 'Load anyway? (Y/N)'], () => E.slots.openLoad()); }
+    else if (i === 'T') { resume(); if (!E.plus?.open('settings')) E.settingsPanel?.open('settings'); }
+    else if (i === 'R') resume();
+    else if (i === 'S') {
+      if (dead) return;
       const go = () => E.slots?.enabled() ? E.slots.openSave(name => quit(true, name)) : void quit(true).catch(() => {});
       if (E.currentModule === 'STARPORT') go();
       else ask = { lines: wrap('You are away from a starport. Your game returns to your last starport save. Quit? (Y/N)'), yes: go };
     }
-    else confirm(['Quit without saving? (Y/N)'], () => void quit(false).catch(() => {}));
+    else if (i === 'Q') confirm(['Quit without saving? (Y/N)'], () => void quit(false).catch(() => {}));
   }
   function key(k) {
     if (quitting === 'closed' && k === KEY.ENTER) return globalThis.location?.reload();
@@ -220,13 +221,13 @@ export function installEscape(E) {
       return;
     }
     if (k === KEY.ESC || upper === 'R' || upper === 'B') resume();
-    else if (upper === 'S') choose(1);
-    else if (upper === 'Q') choose(2);
-    else if (upper === 'T') choose(3);
-    else if (upper === 'L') choose(4);
+    else if (upper === 'S') choose('S');
+    else if (upper === 'Q') choose('Q');
+    else if (upper === 'T') choose('T');
+    else if (upper === 'L') choose('L');
     else if (k === KEY.UP || k === KEY.LEFT) selected = (selected + labels().length - 1) % labels().length;
     else if (k === KEY.DOWN || k === KEY.RIGHT) selected = (selected + 1) % labels().length;
-    else if ((k === KEY.ENTER || k === KEY.SPACE)) choose(selected);
+    else if ((k === KEY.ENTER || k === KEY.SPACE)) choose(labels()[selected][0]);
   }
   E.input.onDeviceEscape = () => {
     if (active) return;
@@ -235,18 +236,19 @@ export function installEscape(E) {
     frozenTimer = E.timer?.now?.() ?? 0;
     wallAt = performance.now();
     priorModal = E.input.modal;
+    dead = /\bYou\s+Are\s+All\s+Dead\b/i.test(E.text?.screenText?.().join('\n') ?? '');
     active = true; selected = 0; ask = null; gate = new Promise(r => { release = r; });
     pausedAt = clock?.() ?? 0;
     audioWasRunning = E.audio?.ctx?.state === 'running';
     if (audioWasRunning) E.audio.ctx.suspend()?.catch?.(() => {});
-    note = E.currentModule === 'STARPORT' ?
+    note = dead ? '' : E.currentModule === 'STARPORT' ?
       (menuWaiting && mainMenu(true) ? 'Save current starport state' : menuPoint ?
         'Saved as of the starport main menu' : 'Saved as of arrival at the starport') :
       checkpoint ? 'Saved as of starport departure' : 'Saved as of your last save';
     E.input.modal = E.escape.modal = { key, click(x, y) {
       if (!quitting && !ask && x >= 32 && x < 288) {
         const i = Math.floor((y - 60) / 20);
-        if (i >= 0 && i < labels().length && y < 76 + i * 20) { selected = i; choose(i); }
+        if (i >= 0 && i < labels().length && y < 76 + i * 20) { selected = i; choose(labels()[i][0]); }
       }
     } };
   };

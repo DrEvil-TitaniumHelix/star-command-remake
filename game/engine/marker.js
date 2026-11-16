@@ -26,14 +26,17 @@ export function installMarker(E) {
     return put.call(this, x, y, image, ...args);
   };
   E.missionMarker = { cells: () => E.settings?.on('missionMarker') === true && E.currentModule === 'SPACE' &&
-    !E.input.modal && MAP_PROVIDERS.pictureVisible(E, { x: 16, y: 16, w: 128, h: 128 })
+    !E.input.modal && MAP_PROVIDERS.pictureVisible(E, { x: 16, y: 8, w: 128, h: 136 })
     ? markerCells(E.state.G, title) : [] };
   E.display.overlays.push(ctx => {
     const cells = E.missionMarker.cells();
     if (!cells.length) return;
     ctx.save();
     ctx.strokeStyle = '#ffff55'; ctx.lineWidth = 1;
-    for (const p of cells) ctx.strokeRect(p.x * 2 + 1, p.y * 2 + 1, p.size * 2 - 2, p.size * 2 - 2);
+    for (const p of cells) {
+      const d = p.size === 3 ? -1 : 3;
+      ctx.strokeRect(p.x * 2 + d, p.y * 2 + d, p.size * 2 - 2 * d, p.size * 2 - 2 * d);
+    }
     ctx.restore();
   });
   return E.missionMarker;

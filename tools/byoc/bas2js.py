@@ -3,6 +3,8 @@ import argparse, glob, json, os, re, struct, sys
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 
+def lit(v): return 'fr(%s)' % v if re.search(r'[.eE]', v) else v
+
 def split_top(s, seps=(',',)):
     out, depth, q, cur = [], 0, False, ''
     for ch in s:
@@ -72,6 +74,7 @@ class ClassBackend:
              'STRING$': 'stringS', 'INSTR': 'instr', 'SPC': 'spc', 'POS': 'this.pos', 'RND': 'this.rnd',
              'FNCrew': 'this.FNCrew', 'FNIdx': 'this.FNIdx', 'FNRound2': 'this.FNRound2', 'FNKey': 'this.FNKey'}
     STRFUNCS = {'STR$', 'CHR$', 'LEFT$', 'RIGHT$', 'MID$', 'STRING$', 'INKEY$'}
+    ROUNDED = {'SQR', 'LOG', 'EXP', 'SIN', 'COS', 'ATN'}
 
     def __init__(self, mod, opt, text, names, const, originals):
         self.mod, self.opt, self.names, self.const = mod, opt, names, const
@@ -166,6 +169,13 @@ class ClassBackend:
         if not p.done(): raise SyntaxError('trailing %r' % (p.t[p.i:],))
         return e
 
+    def cond(self, s):
+        p = _Expr(self, self.tokens(s))
+        if p.peek()[1] == 'NOT':
+            p.take(); a = p.not_()
+            if p.done(): return a[0] + ' === 0'
+        return self.expr(s)[0] + ' !== 0'
+
     def fn_call(self, v, a):
         tpl = self.fn_inline[v]
         sub = lambda s: s.replace('{0}', a[0] if len(a) > 0 else '').replace('{1}', a[1] if len(a) > 1 else '')
@@ -223,6 +233,7 @@ class ClassBackend:
     def tr(self, idx, off, t):
         expr, assign, pt, lbl, syn, ref, opt = self.expr, self.assign, self.pt, self.lbl, self.syn, self.ref, self.opt
         t0 = t; t = self.strip_comment(t)
+        for a, b in opt.get('text_fixes', []): t = t.replace(a, b)
         if not t: return '// ' + t0
         if re.match(r'^-?\d+(\.\d+)? = ', t): return '// (data after the last RETURN, not a statement) ' + t0
         if t.startswith('GOTO '):
@@ -233,7 +244,7 @@ class ClassBackend:
         m = re.match(r'^IF (.*) THEN GOTO ((?:L|SUB)_[0-9A-F]{4})$', t)
         if m:
             tgt = lbl(m.group(2)); back = int(tgt, 16) <= off
-            return 'if (%s !== 0) { %spc = %s; continue; }' % (expr(m.group(1))[0], 'await this.tick(); ' if back else '', tgt)
+            return 'if (%s) { %spc = %s; continue; }' % (self.cond(m.group(1)), 'await this.tick(); ' if back else '', tgt)
         m = re.match(r'^ON (.*) (GOTO|GOSUB) (.*)$', t)
         if m:
             tg = '[%s]' % ', '.join(lbl(x.strip()) for x in m.group(3).split(','))
@@ -466,11 +477,11 @@ class _Expr:
         while self.peek()[1] in ('+', '-'):
             op = self.take()[1]; b = self.mod()
             t = 's' if (a[1] == 's' or b[1] == 's') else 'n'
-            a = ('(%s %s %s)' % (a[0], op, b[0]), t)
+            a = (('(%s %s %s)' if t == 's' else 'fr(%s %s %s)') % (a[0], op, b[0]), t)
         return a
     def mod(self): return self.bin(self.idiv, ('MOD',), lambda o, a, b: ('mod(%s, %s)' % (a[0], b[0]), 'n'))
     def idiv(self): return self.bin(self.mul, ('\\',), lambda o, a, b: ('idiv(%s, %s)' % (a[0], b[0]), 'n'))
-    def mul(self): return self.bin(self.neg, ('*', '/'), lambda o, a, b: ('(%s %s %s)' % (a[0], o, b[0]), 'n'))
+    def mul(self): return self.bin(self.neg, ('*', '/'), lambda o, a, b: ('fr(%s %s %s)' % (a[0], o, b[0]), 'n'))
     def neg(self):
         if self.peek()[1] == '-':
             self.take(); a = self.neg(); return ('(-%s)' % a[0], 'n')
@@ -481,7 +492,7 @@ class _Expr:
         a = self.atom()
         while self.peek()[1] == '^':
             self.take(); b = self.neg()
-            a = ('Math.pow(%s, %s)' % (a[0], b[0]), 'n')
+            a = ('fr(Math.pow(%s, %s))' % (a[0], b[0]), 'n')
         return a
     def args(self):
         out = []
@@ -496,7 +507,7 @@ class _Expr:
     def atom(self):
         be = self.be
         k, v = self.take()
-        if k == 'num': return (v, 'n')
+        if k == 'num': return (lit(v), 'n')
         if k == 'str': return (v, 's')
         if k == 'op' and v == '(':
             e = self.parse(); self.expect(')'); return ('(%s)' % e[0], e[1])
@@ -514,7 +525,7 @@ class _Expr:
             if U in be.FUNCS or v in be.FUNCS:
                 f = be.FUNCS.get(U, be.FUNCS.get(v)); a = self.args()
                 js = '%s(%s)' % (f, ', '.join(x[0] for x in a))
-                return (js, 's' if U in be.STRFUNCS else 'n')
+                return ('fr(%s)' % js if U in be.ROUNDED else js, 's' if U in be.STRFUNCS else 'n')
             if self.peek()[1] == '(':
                 a = self.args(); return (be.ref(v, [x[0] for x in a]), 's' if v.endswith('$') else 'n')
             return (be.ref(v, None), 's' if v.endswith('$') else 'n')
@@ -615,6 +626,13 @@ class FlowBackend:
         if not p.done(): raise SyntaxError(f'trailing tokens in {s!r}: {p.t[p.i:]}')
         return e
 
+    def cond(self, s):
+        p = _FlowP(self, self.tokenize(s))
+        if p.at('NOT'):
+            p.take(); a = p.p_not()
+            if p.done(): return f'!({a})'
+        return self.E(s)
+
     def lvalue(self, s):
         p = _FlowP(self, self.tokenize(s)); kind, v = p.take()
         if kind != 'id': raise SyntaxError(s)
@@ -676,7 +694,7 @@ class FlowBackend:
             r = nxt()
             return [f'gs.push({r}); pc = 0x{t:04X}; continue;', f'case {r}:']
         m = re.fullmatch(r'IF (.*) THEN GOTO (\w+)', S_)
-        if m: return [f'if ({E(m.group(1))}) {{ pc = 0x{lab(m.group(2)):04X}; continue; }}']
+        if m: return [f'if ({self.cond(m.group(1))}) {{ pc = 0x{lab(m.group(2)):04X}; continue; }}']
         m = re.fullmatch(r'ON (.*) (GOTO|GOSUB) ([\w, ]+)', S_)
         if m:
             tg = ', '.join(f'0x{lab(x):04X}' for x in m.group(3).split(','))
@@ -904,10 +922,14 @@ class _FlowP:
         while self.peek()[1] in ops:
             op = ops[self.take()[1]]; b = self.p_add(); a = f'B({a} {op} {b})'
         return a
+    def is_str(self, i):
+        while i < len(self.t) and self.t[i][1] == '(': i += 1
+        return i < len(self.t) and (self.t[i][0] == 'str' or (self.t[i][0] == 'id' and self.t[i][1].endswith('$')))
     def p_add(self):
+        s = self.is_str(self.i)
         a = self.p_mod()
         while self.peek()[1] in ('+', '-'):
-            op = self.take()[1]; a = f'({a} {op} {self.p_mod()})'
+            op = self.take()[1]; a = f'({a} {op} {self.p_mod()})' if s else f'fr({a} {op} {self.p_mod()})'
         return a
     def p_mod(self):
         a = self.p_idiv()
@@ -920,7 +942,7 @@ class _FlowP:
     def p_mul(self):
         a = self.p_neg()
         while self.peek()[1] in ('*', '/'):
-            op = self.take()[1]; a = f'({a} {op} {self.p_neg()})'
+            op = self.take()[1]; a = f'fr({a} {op} {self.p_neg()})'
         return a
     def p_neg(self):
         if self.at('-'): self.take(); return f'(-{self.p_neg()})'
@@ -928,7 +950,7 @@ class _FlowP:
         return self.p_pow()
     def p_pow(self):
         a = self.atom()
-        while self.at('^'): self.take(); a = f'Math.pow({a}, {self.atom_neg()})'
+        while self.at('^'): self.take(); a = f'fr(Math.pow({a}, {self.atom_neg()}))'
         return a
     def atom_neg(self):
         if self.at('-'): self.take(); return f'(-{self.atom()})'
@@ -943,7 +965,7 @@ class _FlowP:
     def atom(self):
         be = self.be
         kind, v = self.take()
-        if kind == 'num': return v
+        if kind == 'num': return lit(v)
         if kind == 'str': return json.dumps(v[1:-1])
         if kind == 'op' and v == '(':
             e = self.expr(); self.take(')'); return f'({e})'

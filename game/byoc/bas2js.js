@@ -80,6 +80,7 @@ function bsaveLengths(stmts, files) {
 }
 
 const jsq = (s) => dumps(s);
+const lit = (v) => (/[.eE]/.test(v) ? 'fr(' + v + ')' : v);
 
 class ClassBackend {
   static COMMON_LO = 0x1850; static COMMON_HI = 0x40F4; static STR_LO = 0x4288; static STR_HI = 0x4890;
@@ -91,6 +92,7 @@ class ClassBackend {
     'STRING$': 'stringS', INSTR: 'instr', SPC: 'spc', POS: 'this.pos', RND: 'this.rnd',
     FNCrew: 'this.FNCrew', FNIdx: 'this.FNIdx', FNRound2: 'this.FNRound2', FNKey: 'this.FNKey' };
   static STRFUNCS = new Set(['STR$', 'CHR$', 'LEFT$', 'RIGHT$', 'MID$', 'STRING$', 'INKEY$']);
+  static ROUNDED = new Set(['SQR', 'LOG', 'EXP', 'SIN', 'COS', 'ATN']);
 
   constructor(mod, opt, text, names, consts, files) {
     Object.assign(this, { mod, opt, names, consts });
@@ -210,6 +212,11 @@ class ClassBackend {
     if (!p.done()) throw new SyntaxError('trailing ' + JSON.stringify(p.t.slice(p.i)));
     return e;
   }
+  cond(s) {
+    const p = new ExprP(this, this.tokens(s));
+    if (p.peek()[1] === 'NOT') { p.take(); const a = p.not_(); if (p.done()) return a[0] + ' === 0'; }
+    return this.expr(s)[0] + ' !== 0';
+  }
 
   fnCall(v, a) {
     const tpl = this.fnInline.get(v);
@@ -269,6 +276,7 @@ class ClassBackend {
     const expr = (s) => this.expr(s), assign = (a, b) => this.assign(a, b), pt = (s) => this.pt(s), ref = (a, b) => this.ref(a, b);
     const lbl = ClassBackend.lbl, syn = ClassBackend.syn, opt = this.opt;
     const t0 = t; t = ClassBackend.stripComment(t);
+    for (const [a, b] of opt.text_fixes || []) t = t.replaceAll(a, b);
     if (!t) return '// ' + t0;
     if (/^-?\d+(\.\d+)? = /.test(t)) return '// (data after the last RETURN, not a statement) ' + t0;
     if (t.startsWith('GOTO ')) {
@@ -280,7 +288,7 @@ class ClassBackend {
     let m = /^IF (.*) THEN GOTO ((?:L|SUB)_[0-9A-F]{4})$/.exec(t);
     if (m) {
       const tgt = lbl(m[2]); const back = parseInt(tgt, 16) <= off;
-      return fmt('if (%s !== 0) { %spc = %s; continue; }', expr(m[1])[0], back ? 'await this.tick(); ' : '', tgt);
+      return fmt('if (%s) { %spc = %s; continue; }', this.cond(m[1]), back ? 'await this.tick(); ' : '', tgt);
     }
     m = /^ON (.*) (GOTO|GOSUB) (.*)$/.exec(t);
     if (m) {
@@ -519,13 +527,14 @@ class ExprP {
     let a = this.mod();
     while (this.peek()[1] === '+' || this.peek()[1] === '-') {
       const op = this.take()[1]; const b = this.mod();
-      a = [fmt('(%s %s %s)', a[0], op, b[0]), a[1] === 's' || b[1] === 's' ? 's' : 'n'];
+      const st = a[1] === 's' || b[1] === 's';
+      a = [fmt(st ? '(%s %s %s)' : 'fr(%s %s %s)', a[0], op, b[0]), st ? 's' : 'n'];
     }
     return a;
   }
   mod() { return this.bin(() => this.idiv(), ['MOD'], (o, a, b) => [fmt('mod(%s, %s)', a[0], b[0]), 'n']); }
   idiv() { return this.bin(() => this.mul(), ['\\'], (o, a, b) => [fmt('idiv(%s, %s)', a[0], b[0]), 'n']); }
-  mul() { return this.bin(() => this.neg(), ['*', '/'], (o, a, b) => [fmt('(%s %s %s)', a[0], o, b[0]), 'n']); }
+  mul() { return this.bin(() => this.neg(), ['*', '/'], (o, a, b) => [fmt('fr(%s %s %s)', a[0], o, b[0]), 'n']); }
   neg() {
     if (this.peek()[1] === '-') { this.take(); const a = this.neg(); return [fmt('(-%s)', a[0]), 'n']; }
     if (this.peek()[1] === '+') { this.take(); return this.neg(); }
@@ -533,7 +542,7 @@ class ExprP {
   }
   pow() {
     let a = this.atom();
-    while (this.peek()[1] === '^') { this.take(); const b = this.neg(); a = [fmt('Math.pow(%s, %s)', a[0], b[0]), 'n']; }
+    while (this.peek()[1] === '^') { this.take(); const b = this.neg(); a = [fmt('fr(Math.pow(%s, %s))', a[0], b[0]), 'n']; }
     return a;
   }
   args() {
@@ -551,7 +560,7 @@ class ExprP {
   atom() {
     const be = this.be, C = ClassBackend;
     const [k, v] = this.take();
-    if (k === 'num') return [v, 'n'];
+    if (k === 'num') return [lit(v), 'n'];
     if (k === 'str') return [v, 's'];
     if (k === 'op' && v === '(') { const e = this.parse(); this.expect(')'); return ['(' + e[0] + ')', e[1]]; }
     if (k === 'id') {
@@ -565,7 +574,8 @@ class ExprP {
       if (be.FN_NAMES.has(v)) { const a = this.args(); return [fmt('this.%s(%s)', v, a.map((x) => x[0]).join(', ')), v.endsWith('$') ? 's' : 'n']; }
       if (Object.hasOwn(C.FUNCS, U) || Object.hasOwn(C.FUNCS, v)) {
         const f = Object.hasOwn(C.FUNCS, U) ? C.FUNCS[U] : C.FUNCS[v]; const a = this.args();
-        return [fmt('%s(%s)', f, a.map((x) => x[0]).join(', ')), C.STRFUNCS.has(U) ? 's' : 'n'];
+        const call = fmt('%s(%s)', f, a.map((x) => x[0]).join(', '));
+        return [C.ROUNDED.has(U) ? 'fr(' + call + ')' : call, C.STRFUNCS.has(U) ? 's' : 'n'];
       }
       if (this.peek()[1] === '(') { const a = this.args(); return [be.ref(v, a.map((x) => x[0])), v.endsWith('$') ? 's' : 'n']; }
       return [be.ref(v, null), v.endsWith('$') ? 's' : 'n'];
@@ -667,6 +677,11 @@ class FlowBackend {
     if (!p.done()) throw new SyntaxError(`trailing tokens in ${s}`);
     return e;
   }
+  cond(s) {
+    const p = new FlowP(this, this.tokenize(s));
+    if (p.at('NOT')) { p.take(); const a = p.pNot(); if (p.done()) return `!(${a})`; }
+    return this.E(s);
+  }
 
   lvalue(s) {
     const p = new FlowP(this, this.tokenize(s)); const [kind, v] = p.take();
@@ -724,7 +739,7 @@ class FlowBackend {
       return [`gs.push(${r}); pc = 0x${X4(t)}; continue;`, `case ${r}:`];
     }
     m = re('^IF (.*) THEN GOTO (' + W + '+)$').exec(S_);
-    if (m) return [`if (${E(m[1])}) { pc = 0x${X4(lab(m[2]))}; continue; }`];
+    if (m) return [`if (${this.cond(m[1])}) { pc = 0x${X4(lab(m[2]))}; continue; }`];
     m = re('^ON (.*) (GOTO|GOSUB) ([' + W.slice(1, -1) + ', ]+)$').exec(S_);
     if (m) {
       const tg = m[3].split(',').map((x) => `0x${X4(lab(x))}`).join(', ');
@@ -924,16 +939,17 @@ class FlowP {
     while (Object.hasOwn(ops, this.peek()[1] ?? '')) { const op = ops[this.take()[1]]; const b = this.pAdd(); a = `B(${a} ${op} ${b})`; }
     return a;
   }
-  pAdd() { let a = this.pMod(); while (this.peek()[1] === '+' || this.peek()[1] === '-') { const op = this.take()[1]; a = `(${a} ${op} ${this.pMod()})`; } return a; }
+  isStr(i) { let t = this.t[i]; while (t && t[1] === '(') t = this.t[++i]; return !!t && (t[0] === 'str' || (t[0] === 'id' && t[1].endsWith('$'))); }
+  pAdd() { const s = this.isStr(this.i); let a = this.pMod(); while (this.peek()[1] === '+' || this.peek()[1] === '-') { const op = this.take()[1]; a = s ? `(${a} ${op} ${this.pMod()})` : `fr(${a} ${op} ${this.pMod()})`; } return a; }
   pMod() { let a = this.pIdiv(); while (this.at('MOD')) { this.take(); a = `MOD(${a}, ${this.pIdiv()})`; } return a; }
   pIdiv() { let a = this.pMul(); while (this.at('\\')) { this.take(); a = `IDIV(${a}, ${this.pMul()})`; } return a; }
-  pMul() { let a = this.pNeg(); while (this.peek()[1] === '*' || this.peek()[1] === '/') { const op = this.take()[1]; a = `(${a} ${op} ${this.pNeg()})`; } return a; }
+  pMul() { let a = this.pNeg(); while (this.peek()[1] === '*' || this.peek()[1] === '/') { const op = this.take()[1]; a = `fr(${a} ${op} ${this.pNeg()})`; } return a; }
   pNeg() {
     if (this.at('-')) { this.take(); return `(-${this.pNeg()})`; }
     if (this.at('+')) { this.take(); return this.pNeg(); }
     return this.pPow();
   }
-  pPow() { let a = this.atom(); while (this.at('^')) { this.take(); a = `Math.pow(${a}, ${this.atomNeg()})`; } return a; }
+  pPow() { let a = this.atom(); while (this.at('^')) { this.take(); a = `fr(Math.pow(${a}, ${this.atomNeg()}))`; } return a; }
   atomNeg() { if (this.at('-')) { this.take(); return `(-${this.atom()})`; } return this.atom(); }
   args() {
     this.take('('); const out = [];
@@ -947,7 +963,7 @@ class FlowP {
   atom() {
     const be = this.be, C = FlowBackend;
     const [kind, v] = this.take();
-    if (kind === 'num') return v;
+    if (kind === 'num') return lit(v);
     if (kind === 'str') return jsq(v.slice(1, -1));
     if (kind === 'op' && v === '(') { const e = this.expr(); this.take(')'); return `(${e})`; }
     if (kind === 'id') {

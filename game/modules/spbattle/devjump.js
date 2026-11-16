@@ -23,7 +23,7 @@ export const SCRIPTS = {
 };
 
 const SEED = { 'SB-06E': 1, 'SB-02d': 1, 'SB-02dY': 1, 'SB-04': 3, 'SB-07': 3, 'SB-09': 3 };
-const HOLD = { 'SB-04': { delay: /Sucessfull\/$/ }, 'SB-07': { chain: true }, 'SB-09': { idle: true }, 'SB-06E': { idle: true } };
+const HOLD = { 'SB-04': { delay: /Suc+essful+\/$/ }, 'SB-07': { chain: true }, 'SB-09': { idle: true }, 'SB-06E': { idle: true } };
 
 export async function prepare(E, screen, gap = 3) {
   const id = Object.keys(SCRIPTS).find((k) => k.toUpperCase() === String(screen).toUpperCase());

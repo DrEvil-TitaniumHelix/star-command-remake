@@ -10,8 +10,7 @@ import { dom } from './settings-panel.fixture.mjs';
 import { Timer, TICKS_PER_SEC } from './timer.js';
 
 const sleep = ms => new Promise(r => setTimeout(r, ms));
-async function fixture(module = 'STARPORT', settings) {
-  const files = new Files({ baseDir: new URL('../assets/files/', import.meta.url).pathname.replace(/^\/([A-Z]:)/i, '$1') });
+async function fixture(module = 'STARPORT', settings, files = new Files({ baseDir: new URL('../assets/files/', import.meta.url).pathname.replace(/^\/([A-Z]:)/i, '$1') })) {
   const state = new State(files); await state.load();
   const data = new Data(files), names = await data.charName();
   state.str('ShipName$')[0] = names[0];
@@ -24,6 +23,59 @@ function menuWait(E) {
   E.text = { screenText: () => ['Main Menu', 'G-Game Save', 'Select Option'] };
   assert.equal(E.input.inkey(), '');
 }
+function menuText(E) {
+  const rows = new Map(), ctx = { save() {}, restore() {}, fillRect() {}, strokeRect() {}, translate() {},
+    fillText(ch, x, y) { rows.set(y, (rows.get(y) ?? '') + ch); } };
+  E.display.overlays.forEach(draw => draw(ctx));
+  return [...rows.values()];
+}
+for (const slots of [false, true]) for (const route of ['key', 'arrows', 'click']) {
+  const files = new Files(), state = new State(files);
+  for (let m = 1; m <= 8; m++) state.setCrew(m, 15, 30);
+  state.save(); files.writeText('CHARNAME', 'Ship,A,B,C,D,E,F,G,H,');
+  const E = await fixture('PLBATTLE', undefined, files), before = files.saved('CHARINFO.BAS').slice();
+  let loads = 0, saves = 0, settings = 0, closed = 0, dead = true;
+  E.slots.enabled = () => slots;
+  E.slots.openLoad = () => loads++;
+  E.slots.openSave = () => saves++;
+  E.settingsPanel = { open: () => settings++, isOpen: () => false };
+  E.text = { screenText: () => [dead ? '           You Are All Dead' : 'Movement Phase 3'] };
+  for (let m = 3; m <= 8; m++) E.state.setCrew(m, 15, 0);
+  const pick = (k, i) => {
+    if (route === 'key') E.input.device(k);
+    else if (route === 'click') E.input.modal.click(40, 65 + i * 20);
+    else { for (let j = 0; j < i; j++) E.input.device(KEY.DOWN); E.input.device(KEY.ENTER); }
+  };
+  const labels = ['R-Resume', 'Q-Quit without saving', 'T-Settings', ...(slots ? ['L-Load'] : [])];
+  E.input.device(KEY.ESC);
+  assert.deepEqual(menuText(E), labels);
+  E.input.device('s'); E.input.device('Y');
+  assert.deepEqual(menuText(E), labels, 'hidden save shortcut does nothing');
+  assert.equal(saves, 0);
+  if (slots) {
+    pick('L', 3); E.input.device('N'); assert.equal(loads, 0);
+    E.input.device('L'); E.input.device('Y'); assert.equal(loads, 1);
+  } else { E.input.device('L'); E.input.device('Y'); assert.deepEqual(menuText(E), labels); }
+  E.escape.resume(); E.input.device(KEY.ESC);
+  pick('T', 2); assert.equal(settings, 1); assert.equal(E.input.modal, null);
+  dead = false; E.input.device(KEY.ESC);
+  assert.ok(menuText(E).includes('S-Save & Quit'), 'save returns on a normal screen');
+  E.input.device('S'); assert.ok(menuText(E).some(s => s.includes('Quit? (Y/N)')));
+  if (slots) { E.input.device('Y'); assert.equal(saves, 1); } else E.input.device('N');
+  E.escape.resume(); dead = true; E.input.device(KEY.ESC);
+  E.input.device(KEY.UP); E.input.device(KEY.DOWN); E.input.device(KEY.ENTER);
+  assert.equal(E.input.modal, null, 'navigation wraps through visible rows');
+  E.input.device(KEY.ESC);
+  const win = globalThis.window;
+  globalThis.window = { close: () => closed++ };
+  try {
+    pick('Q', 1); assert.deepEqual(menuText(E), ['Quit without saving? (Y/N)']);
+    E.input.device('N'); assert.equal(closed, 0);
+    E.input.device('Q'); E.input.device('Y'); assert.equal(closed, 1);
+    assert.deepEqual(files.saved('CHARINFO.BAS'), before);
+  } finally { if (win === undefined) delete globalThis.window; else globalThis.window = win; }
+}
+console.log('overlay: death menu, save guard, load, quit, settings, keys and clicks passed');
 {
   const E = await fixture(), before = E.state.toBytes(), lock = E.state.G[2265];
   const point = captureSave(E);

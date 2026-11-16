@@ -21,6 +21,11 @@ export class InsideRT extends BasicRT {
       for (const [c, w] of [['#000', 4], ['#ff55ff', 2]]) { ctx.strokeStyle = c; ctx.lineWidth = w; ctx.strokeRect(k[0] * 2 - 3, k[1] * 2 - 3, 16, 16); }
       ctx.restore();
     });
+    if (E.display?.overlays && !E.vfDraw) E.display.overlays.push(E.vfDraw = (ctx) => {
+      const v = E.vf; if (!v) return;
+      if (performance.now() > v.t) { E.vf = null; return; }
+      ctx.imageSmoothingEnabled = false; ctx.drawImage(v.c, 0, 0, 640, 400);
+    });
   }
 
   get fs() { return this.E.files ?? this.E.state?.files; }
@@ -89,7 +94,13 @@ export class InsideRT extends BasicRT {
 
   put(x, y, name, addr, verb) {
     if (name === 'Tile42' && verb === 'XOR') { this.mkOn = !this.mkOn; this.mk = [x, y, name, addr, verb]; }
-    return this.put0(x, y, name, addr, verb);
+    const r = this.put0(x, y, name, addr, verb);
+    if (verb === 'PRESET' && this.E.vfDraw && typeof OffscreenCanvas !== 'undefined') {
+      const fb = this.E.fb, c = new OffscreenCanvas(fb.W, fb.H), d = new ImageData(fb.W, fb.H);
+      c.getContext('2d').putImageData(fb.toRGBA(d.data) && d, 0, 0);
+      this.E.vf = { c, t: performance.now() + 110 };
+    }
+    return r;
   }
 
   put0(x, y, name, addr, verb) {

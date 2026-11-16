@@ -33,7 +33,7 @@ folder to remain available when starting.
 
 ## Controls
 
-Keyboard, mouse and gamepad all work at the same time. Press **F1** (gamepad **View / Back**) during play to open
+Keyboard and mouse both work at the same time. Press **F1** during play to open
 Star Command Plus; its Help tab shows the keys the current screen accepts.
 
 ### Keyboard (as in the original)
@@ -66,35 +66,9 @@ Extra keys of the port: **Esc** = the Esc menu, **F1** = Star Command Plus, **F2
 - When you click back into the game after using another window, the first click restores focus; **Click again to
   play** means the next click will act on the game.
 
-### Gamepad (standard layout)
-
-| Gamepad button | Acts as |
-|---|---|
-| D-pad or left stick | arrow keys (hold to repeat) |
-| **LB** / **RB** (or right stick up / down) | move a yellow box over the letter menu on screen (`A-Up Scan`, `B-Dock ...`) |
-| **A** | chooses the boxed menu item; with no box: Enter |
-| **B** | "N" (no) when the screen asks `(Y/N)`, otherwise opens the Esc menu |
-| **X** | Space |
-| **Y** | the letter Y (answers "yes") |
-| **Start** (≡) | opens the Esc menu |
-| **View / Back** (⧉) | Star Command Plus (F1); if the help is switched off, the Esc menu |
-
-**Letter menus with the gamepad:** press **LB** or **RB** until the yellow box is on the item you want, then press
-**A**. The box goes away when the menu changes. The d-pad always stays the arrow keys, because some screens (space,
-stations, ground battle) use a letter menu and the arrows at the same time. Inside the Esc menu, the d-pad moves the
-choice and **A** picks it; **B** goes back. The separate Plus window uses the mouse or keyboard, not these gamepad
-menu controls.
-
-**Not possible with the buttons alone** (use a mouse, a USB or Bluetooth keyboard, or the Windows touch keyboard:
-an on-screen keyboard):
-- crew pickers that show `1>name ... 6>name` (they need the digit, or a mouse click on the name)
-- typed answers: the time delay, names, commands typed in station rooms, the name of a new save slot
-- the Range and Hit preview buttons and pointing at enemies: use the mouse. The Plus window also has a Log book tab.
-  Game speed has **F2**.
-
 ## What is new compared with the 1988 game
 
-**Esc**, then **T-Settings** (or gamepad **Start**, then choose `T-Settings`) opens **Star Command Plus**. Choose the
+**Esc**, then **T-Settings** opens **Star Command Plus**. Choose the
 Settings tab and click a checkbox, or use **Tab** to reach it and **Space** to change it. Your choices are remembered.
 Helpers start enabled, except that Manual is hidden when its text is unavailable. The pause menu cannot be disabled.
 
@@ -105,9 +79,9 @@ panel with its close button or **Esc** while it has focus.
 
 - **Mouse control**: click a recognised choice, or a map spot to move
   there step by step (see *Mouse* above). Turning it off disables these game commands; Plus controls remain usable.
-- **Esc menu**: **Esc** (gamepad **Start**, or **B** when no `(Y/N)` question is up) pauses the game and shows
+- **Esc menu**: **Esc** pauses the game and shows
   `R-Resume`, `S-Save & Quit`, `Q-Quit without saving`, `T-Settings` and, with save slots on, `L-Load`. Press the
-  letter, use the arrows and **Enter**, the gamepad, or click. This menu is always there.
+  letter, use the arrows and **Enter**, or click. This menu is always there.
   - *Save & Quit* at the starport main menu saves the game as it is now. Anywhere else it saves your last safe
     point (arriving at a starport, its main menu, or your last departure from a starport), because the game can
     only continue a save at a starport. The menu tells you which point it will save before you choose.
@@ -116,7 +90,7 @@ panel with its close button or **Esc** while it has focus.
 - **Skip rule-book question**: **G-Game Save** at the starport saves at
   once. Off = the original asks for a word from the rule book first.
 - **Controls help**: the Plus Help tab shows the current screen's keys and general controls; **F1** opens Plus. The switch
-  **Help button (?) and gamepad Back** controls the mouse button and gamepad shortcut; keyboard **F1** still works.
+  **Help button (?)** controls the mouse button; keyboard **F1** still works.
 - **Item tooltips**: point at a weapon, armor, equipment, ship or crew row in the shops, inspect
   and equip screens to see its numbers and price (damage, shots, range, weight, armor, monthly pay ...). All
   numbers come from the game's own data; starport prices include the starport's 20 % markup, as the game charges.

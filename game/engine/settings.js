@@ -1,7 +1,7 @@
 export const FEATURES = {
   mouse: 'Mouse control',
   noChallenge: 'Skip rule-book question',
-  controlOverlay: 'Help button (?) and gamepad Back',
+  controlOverlay: 'Help button (?)',
   enemyTooltips: 'Enemy tooltips',
   rangeOverlay: 'Range overlay',
   hitPreview: 'Hit-chance preview',

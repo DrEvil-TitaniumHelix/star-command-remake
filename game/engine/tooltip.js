@@ -12,7 +12,7 @@ function regions(E, items) {
   const allowed = (item) => {
     if (item.group === 'crew pay') return false;
     if (mod === 'PLBATTLE') return item.group === 'squad weapons' && /Is Using:|SPACE to change weapon/.test(screen);
-    if (mod === 'SPACE' || mod === 'INSIDE') return /EQUIPING|Rank:|Class:|Status Report|Ships Guns|Rlds|Weapons|Hand Weapon|Armor|Sighting/.test(screen);
+    if (mod === 'SPACE' || mod === 'INSIDE') return /EQUIPP?ING|Rank:|Class:|Status Report|Ships Guns|Rlds|Weapons|Hand Weapon|Armor|Sighting/.test(screen);
     return /Select A|Price:|[Aa]mmo for which gun|Arsenal|Returns Department|Class |Rank:|Status Report|Ships Guns|Rlds|Weapons|Hand Weapon|Armor|Sighting/.test(screen);
   };
   for (let r = 0; r < rows.length; r++) {
@@ -25,7 +25,7 @@ function regions(E, items) {
         if (/[A-Za-z]/.test(rows[r][c + name.length] ?? '')) continue;
         const selector = /^\s*(?:[A-Z0-9PCSH]+[>\-])(?:\s*[PC1-6SH])?\s*$/.test(rows[r].slice(0, c));
         out.push({ item, row: r, col: selector ? rows[r].search(/\S/) : c, end: c + name.length });
-        if (mod === 'SPACE' && /EQUIPING/.test(screen) && r > 0 && /^\s*[A-K]-.*(?:Weapon|Ammo For)/.test(rows[r - 1])) {
+        if (mod === 'SPACE' && /EQUIPP?ING/.test(screen) && r > 0 && /^\s*[A-K]-.*(?:Weapon|Ammo For)/.test(rows[r - 1])) {
           out.push({item,row:r-1,col:rows[r-1].search(/\S/),end:Math.max(c+name.length,rows[r-1].trimEnd().length)});
         }
         break;
@@ -96,15 +96,11 @@ export function installTooltips(E, canvas) {
   E.display.overlays.push(ctx => {
     if (E.input.modal || !E.settings.on('itemTooltips')) return;
     if (E.currentModule === 'STARPORT') { const rows = E.text.screenText(); if (rows.some(r => /Select A .*Weapon/.test(r))) for (const hit of regions(E, items)) {
-      const price = Math.round(hit.item.fields?.['printed purchase price'] ?? hit.item.fields?.['starport purchase price'] ?? NaN), t = String(price);
+      const price = hit.item.fields?.['printed purchase price'] ?? hit.item.fields?.['starport purchase price'] ?? NaN, t = String(Math.floor(price));
       if (Number.isFinite(price) && hit.end + t.length < 38 && !rows[hit.row].slice(hit.end, 39).trim()) drawText(ctx, E, t, (38 - t.length) * 16, hit.row * 16, UI.dim, 2);
     } }
     let tip, anchor;
-    const h = E.input.highlight;
-    if (h && E.input.lastDevice === 'gamepad') {
-      const hit = regions(E, items).find(it => it.row === h.row - 1 && it.col < h.col - 1 + h.len && it.end > h.col - 1);
-      if (hit) { tip = at(hit.end * 8 - 1, hit.row * 8); anchor = { x: h.col * 16, y: h.row * 16 }; }
-    } else if (pointer) { const p = E.display.viewToLogical(pointer.x, pointer.y); tip = at(p.x, p.y); anchor = pointer; }
+    if (pointer) { const p = E.display.viewToLogical(pointer.x, pointer.y); tip = at(p.x, p.y); anchor = pointer; }
     if (tip) { const lines = [tip.title, ...tip.lines], h = lines.length * 10 + 14; drawPanel(ctx, E, anchor.x + 12, anchor.y < 200 ? 400 - h : 0, lines, { scale: 1 }); }
   });
 }

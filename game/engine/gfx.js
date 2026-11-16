@@ -40,17 +40,16 @@ export class Gfx {
   lineTo(x2, y2, c, box, style) { this.line(this.lastX, this.lastY, x2, y2, c, box, style); }
 
   seg(x1, y1, x2, y2, c, style) {
-    const dx = Math.abs(x2 - x1), dy = Math.abs(y2 - y1);
-    const sx = x1 < x2 ? 1 : -1, sy = y1 < y2 ? 1 : -1;
-    let err = dx - dy, x = x1, y = y1, bit = 0;
+    if (x1 > x2) [x1, y1, x2, y2] = [x2, y2, x1, y1];
+    const w = x2 - x1, h = Math.abs(y2 - y1), sy = y2 < y1 ? -1 : 1;
+    const wide = h < w, major = wide ? w : h, minor = wide ? h : w;
     const styled = style !== undefined && style !== null && style !== -1 && (style & 0xffff) !== 0xffff;
-    for (;;) {
-      if (!styled || ((style >> (15 - (bit & 15))) & 1)) this.fb.pset(x, y, c);
-      bit++;
-      if (x === x2 && y === y2) break;
-      const e2 = 2 * err;
-      if (e2 > -dy) { err -= dy; x += sx; }
-      if (e2 < dx) { err += dx; y += sy; }
+    let d = 4 * minor - major, x = x1, y = y1;
+    for (let i = 0; i <= major; i++) {
+      if (!styled || ((style >> (15 - (i & 15))) & 1)) this.fb.pset(x, y, c);
+      const step = d >= 0;
+      d += step ? 4 * (minor - major) : 4 * minor;
+      if (wide) { x++; if (step) y += sy; } else { y += sy; if (step) x++; }
     }
   }
 
