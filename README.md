@@ -2,7 +2,7 @@
 
 A faithful rebuild of **Star Command** (Strategic Simulations, Inc., 1988; written by Winston Douglas Wood) that runs in
 a web browser. It was made from a decode of the original QuickBASIC 3 program: its seven main modules were
-turned into readable pseudocode, reviewed, and translated into a JavaScript engine. Status: **beta (v0.1.5-beta)**,
+turned into readable pseudocode, reviewed, and translated into a JavaScript engine. Status: **beta (v0.1.6-beta)**,
 ready for community testing.
 
 **Bring your own copy.** This repository contains none of the game's files: no program, data, graphics or sound. You
@@ -45,7 +45,12 @@ In **RecompLauncher**, select your original game folder and press **Play**. It u
 the installation, shared with `StarCommand.exe`, and stops its server when the game closes. It reuses a ready import;
 the original folder is needed for a new import. Selecting a different folder offers a choice of copies. After the
 first launch it keeps the same saved address; if another program uses that address's port, close that program and
-retry. Launch failures display a reason.
+retry. Launch failures display a reason and are added to `logs/launcher.log`, which RecompLauncher attaches to crash
+reports.
+In Big Picture mode the game opens full screen.
+In the game's RecompLauncher settings, **Starting crew: Veteran crew** starts like `Play Star Command (Veteran Crew).cmd`:
+the veteran save uses its own address (`localhost` instead of `127.0.0.1`, same port and profile), is imported there once, and an existing
+save at that address is kept.
 
 **Other systems, or a manual start:** install Python 3, open a terminal in the unpacked project folder and run
 `python -I tools/serve.py 8088`. Leave it running and open **http://localhost:8088/index.html** in Chrome or Edge.

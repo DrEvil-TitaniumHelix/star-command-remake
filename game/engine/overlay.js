@@ -236,7 +236,7 @@ export function installEscape(E) {
     frozenTimer = E.timer?.now?.() ?? 0;
     wallAt = performance.now();
     priorModal = E.input.modal;
-    dead = /\bYou\s+Are\s+All\s+Dead\b/i.test(E.text?.screenText?.().join('\n') ?? '');
+    dead = /\bYou\s+Are\s+All\s+Dead\b|The\s+crew\s+starves!/i.test(E.text?.screenText?.().join('\n') ?? '');
     active = true; selected = 0; ask = null; gate = new Promise(r => { release = r; });
     pausedAt = clock?.() ?? 0;
     audioWasRunning = E.audio?.ctx?.state === 'running';
@@ -262,6 +262,10 @@ export function installEscape(E) {
     priorModal = null;
     E.input.flush(); restartPending = true; resume();
   } };
+  E.afterEnd = async mod => {
+    if (mod === 'STARPORT') { E.input.onDeviceEscape(); quitting = 'closed'; globalThis.window?.close(); E.fb.cls(); E.display.present?.(true); }
+    for (;;) await E.timer.frame();
+  };
   installSlots(E);
   if (currentModule === 'STARPORT' && E.slots.enabled()) enterStarport();
 }

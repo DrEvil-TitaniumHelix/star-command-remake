@@ -34,12 +34,12 @@ for (const slots of [false, true]) for (const route of ['key', 'arrows', 'click'
   for (let m = 1; m <= 8; m++) state.setCrew(m, 15, 30);
   state.save(); files.writeText('CHARNAME', 'Ship,A,B,C,D,E,F,G,H,');
   const E = await fixture('PLBATTLE', undefined, files), before = files.saved('CHARINFO.BAS').slice();
-  let loads = 0, saves = 0, settings = 0, closed = 0, dead = true;
+  let loads = 0, saves = 0, settings = 0, closed = 0, dead = true, deadText = '           You Are All Dead';
   E.slots.enabled = () => slots;
   E.slots.openLoad = () => loads++;
   E.slots.openSave = () => saves++;
   E.settingsPanel = { open: () => settings++, isOpen: () => false };
-  E.text = { screenText: () => [dead ? '           You Are All Dead' : 'Movement Phase 3'] };
+  E.text = { screenText: () => [dead ? deadText : 'Movement Phase 3'] };
   for (let m = 3; m <= 8; m++) E.state.setCrew(m, 15, 0);
   const pick = (k, i) => {
     if (route === 'key') E.input.device(k);
@@ -65,7 +65,9 @@ for (const slots of [false, true]) for (const route of ['key', 'arrows', 'click'
   E.escape.resume(); dead = true; E.input.device(KEY.ESC);
   E.input.device(KEY.UP); E.input.device(KEY.DOWN); E.input.device(KEY.ENTER);
   assert.equal(E.input.modal, null, 'navigation wraps through visible rows');
+  deadText = ' Ship is irreparable. The crew starves!';
   E.input.device(KEY.ESC);
+  assert.deepEqual(menuText(E), labels, 'no save after the crew starves');
   const win = globalThis.window;
   globalThis.window = { close: () => closed++ };
   try {

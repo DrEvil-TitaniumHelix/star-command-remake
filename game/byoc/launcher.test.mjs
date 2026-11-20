@@ -15,6 +15,7 @@ const script = path.join(fixture, 'tools/serve.ps1'), children = [];
 const env = { ...process.env, SC_QUIET: '1', SC_GAME: '', SC_BROWSER: '', SC_LOG: '' };
 const quote = (s) => "'" + s.replaceAll("'", "''") + "'";
 let count = 0;
+const pwsh = (names, body, extra = {}) => run(shell, ['-NoProfile', '-NonInteractive', '-Command', `$ErrorActionPreference='Stop'; $tokens=$null; $errors=$null; $ast=[Management.Automation.Language.Parser]::ParseFile(${quote(script)},[ref]$tokens,[ref]$errors); if($errors.Count){throw 'parse failed'}; $ast.FindAll({param($n) $n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -in @(${names.map(quote).join(',')})},$true) | ForEach-Object {Invoke-Expression $_.Extent.Text}; ${body}; 'passed'`], { env: { ...env, ...extra }, cwd: fixture, windowsHide: true });
 const test = async (name, work) => { await work(); count++; console.log('ok ' + name); };
 const call = async (args, extra = {}) => {
   try { const r = await run(shell, ['-NoProfile', '-NonInteractive', '-ExecutionPolicy', 'Bypass', '-File', script, ...args], { cwd: fixture, env: { ...env, ...extra }, windowsHide: true, timeout: 15000 }); return { ...r, code: 0 }; }
@@ -88,6 +89,10 @@ try {
     const code = `$ErrorActionPreference='Stop'; $tokens=$null; $errors=$null; $ast=[Management.Automation.Language.Parser]::ParseFile(${quote(script)},[ref]$tokens,[ref]$errors); if($errors.Count){throw 'parse failed'}; $ast.FindAll({param($n) $n -is [Management.Automation.Language.FunctionDefinitionAst] -and $n.Name -in @('Fail','Browser-Names','Remember-Browser')},$true) | ForEach-Object {Invoke-Expression $_.Extent.Text}; $p=${quote(choice)}; if((@(Browser-Names $p) -join ',') -ne 'msedge'){throw 'browser changed'}; $env:SC_BROWSER='chrome'; if((@(Browser-Names $p) -join ',') -ne 'chrome'){throw 'override failed'}; Remember-Browser $p 'chrome.exe'; if([IO.File]::ReadAllText($p) -ne 'edge'){throw 'choice overwritten'}; $env:SC_BROWSER=''; Remove-Item -LiteralPath $p; Remember-Browser $p 'msedge.exe'; if((@(Browser-Names $p) -join ',') -ne 'msedge'){throw 'choice not remembered'}; 'browser choice checks passed'`;
     const r = await run(shell, ['-NoProfile', '-NonInteractive', '-Command', code], { env, cwd: fixture, windowsHide: true }); assert.match(r.stdout, /passed/);
   });
+  await test('Big Picture opens the launch window full screen and leaves desktop and command-script windows sized', async () => {
+    const r = await pwsh(['App-Args'], `$exe='chrome.exe'; $env:SC_WINDOW='0,0,656,440'; $env:RECOMPLAUNCHER_MODE='bigpicture'; $a=@(App-Args 'u' 'p'); if(!($a -contains '--start-fullscreen') -or ($a -match 'window-size')){throw 'big picture'}; $a=@(App-Args 'u'); if($a -contains '--start-fullscreen'){throw 'command script'}; $env:RECOMPLAUNCHER_MODE='desktop'; $a=@(App-Args 'u' 'p'); if(($a -contains '--start-fullscreen') -or !($a -match 'window-size')){throw 'desktop'}`);
+    assert.match(r.stdout, /passed/);
+  });
   await test('a foreign listener is rejected without changing the fixed address', async () => {
     const server = http.createServer((q, r) => { const body = JSON.stringify({ app: 'unrelated' }); r.writeHead(200, { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) }); r.end(body); });
     await new Promise((r) => server.listen(0, '127.0.0.1', r));
@@ -111,6 +116,23 @@ try {
     assert.equal((await live.done).code, 0);
     assert.equal(readFileSync(path.join(fixture, 'recomp-profile/port'), 'utf8'), remembered);
   });
+  await test('the profile launch argument keeps launch mode when a player adds a command-script option', async () => {
+    assert.deepEqual(JSON.parse(readFileSync(path.join(root, 'recomplauncher.json'), 'utf8')).start.args, ['--launch']);
+    const live = await start(['--launch', '--veteran', '--no-browser', '--test-timeout', '3']);
+    assert.equal(JSON.parse((await get(live.port, '/byoc-status')).text).mode, 'launch');
+    assert.equal(readFileSync(path.join(fixture, 'recomp-profile/port'), 'utf8'), String(live.port));
+    assert.equal((await live.done).code, 0);
+  });
+  await test('the Veteran crew setting opens the veteran save address in launch mode and never forces a replace', async () => {
+    const m = JSON.parse(readFileSync(path.join(root, 'recomplauncher.json'), 'utf8')), crew = m.settings.find((s) => s.id === 'crew');
+    assert.equal(crew.in, 'args'); assert.deepEqual(crew.choices.map((c) => c.args), [[], ['--veteran']]);
+    const r = await pwsh(['Launch-Url'], `$veteran=$true; Launch-Url 5 'S' 'C'; $veteran=$false; Launch-Url 5 'S' 'C'`);
+    const [v, n] = r.stdout.trim().split(/\r?\n/).slice(0, 2).map((s) => new URL(s));
+    assert.equal(v.host, 'localhost:5'); assert.equal(v.searchParams.get('launch'), '1'); assert.equal(v.searchParams.get('source'), 'S');
+    const play = new URL(new URL(v.searchParams.get('return'), v).href);
+    assert.equal(play.href, 'http://localhost:5/index.html?assets=opfs&save=veteran'); assert.ok(!play.searchParams.has('force'));
+    assert.equal(n.host, '127.0.0.1:5'); assert.ok(!n.searchParams.has('return'));
+  });
   await test('missing originals do not prevent startup and source read failure remains recoverable', async () => {
     const extra = { SC_GAME: path.join(fixture, 'unavailable-copy') }, live = await start(['--launch', '--no-browser', '--test-timeout', '3'], extra);
     const info = JSON.parse((await get(live.port, '/byoc-status')).text);
@@ -120,6 +142,20 @@ try {
     const changed = await call(['--launch', '--no-browser', '--test-timeout', '1'], { SC_GAME: path.join(fixture, 'different-copy') });
     assert.equal(changed.code, 13); assert.match(changed.stderr, /different original copy/);
     assert.equal((await live.done).code, 0);
+  });
+  await test('launch failures are logged under the install logs folder, bounded, and command-script failures are not', async () => {
+    assert.deepEqual(JSON.parse(readFileSync(path.join(root, 'recomplauncher.json'), 'utf8')).folders.logs, [{ path: '{install}/logs' }]);
+    const portFile = path.join(fixture, 'recomp-profile/port'), log = path.join(fixture, 'logs/launcher.log'), saved = readFileSync(portFile, 'utf8');
+    try {
+      writeFileSync(portFile, 'x');
+      assert.equal((await call(['--launch', '--no-browser', '--test-timeout', '1'])).code, 18);
+      assert.match(readFileSync(log, 'utf8'), /exit 18 The saved server port is invalid/);
+      writeFileSync(log, 'a'.repeat(70000));
+      assert.equal((await call(['--launch', '--no-browser', '--test-timeout', '1'])).code, 18);
+      const text = readFileSync(log, 'utf8'); assert.ok(text.length < 1000 && /exit 18/.test(text));
+      assert.equal((await call(['--play', '--bogus'])).code, 10);
+      assert.equal(readFileSync(log, 'utf8'), text);
+    } finally { writeFileSync(portFile, saved); }
   });
   await test('Python on Windows still delegates to the quiet serve-only PowerShell launcher', async () => {
     const r = await run('python', ['-I', path.join(fixture, 'tools/serve.py'), '--launch', '--no-browser', '--test-timeout', '1'], { cwd: fixture, env, windowsHide: true, timeout: 10000 });

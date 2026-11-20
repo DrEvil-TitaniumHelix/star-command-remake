@@ -1,5 +1,31 @@
 # Changelog
 
+## v0.1.6-beta — 2026-11-20
+
+**Fixed.**
+- After everyone dies in space ("You Are All Dead" in a ship battle), Load in the Esc menu loads the saved game. In
+  v0.1.5 it did nothing and the game had to be quit first.
+- Answering Y to "Quit the game?" after G-Game Save ends the game: the window closes, or the picture shows "You can
+  close this window." with Enter to play again. Before, the page stayed as it was and took no keys.
+- After "Ship is irreparable. The crew starves!" the Esc menu no longer offers Save & Quit; Load and Quit without
+  saving remain.
+- In a ground fight the range note sits in the top-right box and no longer covers the enemy's name.
+
+**Played through.** Stage 16 was played from the Headquarters briefing to the pay-out, so all seventeen campaign
+stages have now been played to their pay-out. Also played to their last page: losing a boarding fight, the life
+support failure in space, the stranded ship, a paid Dry Dock repair, and a promotion with its training session.
+
+**RecompLauncher.** The launcher profile was checked against the launcher's current developer guide.
+- Launch options a player adds in the launcher no longer move the game to another port and save location.
+- In Big Picture mode the game opens full screen.
+- Launch failures are written to `logs/launcher.log`, which the launcher attaches to crash reports.
+- The game's launcher settings have **Starting crew**: New crew or Veteran crew. The veteran crew has its own save
+  address; saved games are kept.
+- Looks are switched off for this game, because they cannot reach the browser window it draws in.
+- The list of exit codes names only codes the game can return.
+
+**Updating.** Nothing is prepared again; saved games are kept.
+
 ## v0.1.5-beta — 2026-11-16
 
 **Fixed.**

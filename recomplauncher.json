@@ -3,6 +3,7 @@
   "format": 1,
   "repo": "DrEvil-TitaniumHelix/star-command-remake",
   "name": "Star Command Remake",
+  "requires": ["start", "exit_codes", "files.env", "files.contains", "settings.args", "settings.choices"],
   "game": {
     "kind": "folder",
     "label": "Your Star Command STARCOMA folder containing STARCOMM.EXE, SPACE.EXE and INFO.BAS.",
@@ -10,13 +11,25 @@
   },
   "start": {
     "program": ["StarCommand.exe"],
+    "args": ["--launch"],
     "env": { "SC_GAME": "{game}" }
   },
+  "settings": [
+    {
+      "id": "crew", "label": "Starting crew", "in": "args",
+      "help": "Veteran crew plays a ready-made save with experienced crew at its own save address. Your saved games are kept.",
+      "choices": [
+        { "label": "New crew", "args": [] },
+        { "label": "Veteran crew", "args": ["--veteran"] }
+      ]
+    }
+  ],
+  "folders": { "logs": [{ "path": "{install}/logs" }] },
+  "looks": { "allowed": false, "reason": "Star Command draws in its own browser window, which looks cannot reach." },
   "saves": ["{install}/recomp-profile/Default/Local Storage", "{install}/recomp-profile/Default/File System", "{install}/recomp-profile/Default/WebStorage", "{install}/recomp-profile/Default/QuotaManager*", "{install}/recomp-profile/port", "{install}/recomp-profile/browser"],
   "exit_codes": {
     "1": "Star Command could not start. Check that the selected game folder is available, the installation folder is writable, and Microsoft Edge or Google Chrome can start.",
     "10": "The launch arguments or browser selection are invalid. Check the displayed reason.",
-    "11": "Select your STARCOMA folder in RecompLauncher, then press Play again.",
     "12": "Microsoft Edge or Google Chrome could not be found. Repair your browser, then press Play again.",
     "13": "Star Command is already running, or its saved port is in use by another program. Close the other session or program, then retry; the save address has not changed.",
     "14": "The local game server could not start. Check the displayed reason and retry.",
@@ -25,7 +38,6 @@
     "17": "The game browser could not start or closed with an error. Restart the browser, then press Play again.",
     "18": "The saved server port is invalid. Restore recomp-profile/port from your backup to keep the same save address.",
     "19": "The game window could not be monitored. Check the displayed reason and retry.",
-    "20": "Windows PowerShell could not be started. Repair Windows PowerShell, then press Play again.",
     "21": "The game browser could not close. Close its remaining processes before starting again.",
     "9009": "Windows PowerShell could not start. Repair Windows PowerShell, then press Play again."
   }

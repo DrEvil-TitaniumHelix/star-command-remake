@@ -2,6 +2,7 @@ $ErrorActionPreference = 'Stop'
 $root = Join-Path (Split-Path $PSScriptRoot -Parent) 'game'
 $launch = $args -contains '--launch'
 $legacy = $args -contains '--play' -or $args -contains '--veteran'
+$veteran = $launch -and $args -contains '--veteran'
 $skip = $args -contains '--no-browser'
 $fixed = $args -contains '--server'
 $port = if ($launch) { 8089 } else { 8088 }
@@ -57,7 +58,8 @@ function Remember-Browser($choiceFile, $exe) {
 }
 
 function Launch-Url($n, $source, $copy) {
-    $u = "http://127.0.0.1:$n/byoc/import/index.html?launch=1"
+    $u = "http://$(if ($veteran) { 'localhost' } else { '127.0.0.1' }):$n/byoc/import/index.html?launch=1"
+    if ($veteran) { $u += '&return=' + [Uri]::EscapeDataString('../../index.html?assets=opfs&save=veteran') }
     if ($source) { $u += "&source=$source&copy=$copy" }
     return $u
 }
@@ -76,7 +78,7 @@ function App-Args($url, $profile = '') {
         if ((Split-Path $exe -Leaf) -eq 'msedge.exe') { '--disable-features=msImplicitSignin,msSingleSignOnOSForPrimaryAccountIsShared,msEdgeFRE'; '--disable-sync' }
     }
     '--app="' + $url + '"'
-    $shape
+    if ($profile -and $env:RECOMPLAUNCHER_MODE -ceq 'bigpicture') { '--start-fullscreen' } else { $shape }
 }
 
 function Watch-Windows {
@@ -387,6 +389,15 @@ try {
     if (!$code) { $code = 1 }
     $reason = $_.Exception.Message
     $prefix = @{14='Could not start the local server. ';15='Could not read the selected game folder. ';16='Could not read or save the browser profile. ';17='Could not start or keep the game browser running. ';19='Could not watch the game window. '}
+    if ($launch) {
+        try {
+            $log = Join-Path (Split-Path $PSScriptRoot -Parent) 'logs'
+            [IO.Directory]::CreateDirectory($log) | Out-Null
+            $log = Join-Path $log 'launcher.log'
+            if ((Test-Path -LiteralPath $log) -and (Get-Item -LiteralPath $log).Length -gt 65536) { Remove-Item -LiteralPath $log }
+            [IO.File]::AppendAllText($log, [DateTime]::UtcNow.ToString('o') + " exit $code " + $prefix[$code] + $reason + [Environment]::NewLine)
+        } catch {}
+    }
     Show-Error ($prefix[$code] + $reason)
 } finally {
     if ($srv) { $srv.Stop() }

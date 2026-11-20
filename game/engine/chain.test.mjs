@@ -24,3 +24,10 @@ assert.equal(await go(), 'title', 'load during the hold restarts at the title');
 delete mods.startup;
 console.log(`chain: ${from} to ${to} report held 22 delay units, early keys ignored, later key ends it, no report no hold pass`);
 }
+{
+const E = { input: {}, text: { screenText: () => [] }, afterEnd: async () => { if (!n++) chain('STARCOMM'); } }, seen = []; let n = 0;
+const mods = { spbattle: { default: async () => { seen.push('dead'); return 'END'; } }, startup: { default: async () => 'title' } };
+assert.equal(await run(E, 'SPBATTLE', {}, async (f) => mods[f]), 'title', 'a load after END restarts at the title');
+assert.equal(await run(E, 'SPBATTLE', {}, async (f) => mods[f]), 'END');
+console.log('chain: a module that ends can be left by a restart pass');
+}

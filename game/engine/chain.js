@@ -30,7 +30,10 @@ export async function run(E, module, opts = {}, loader = (f) => import(`../modul
       if (!(e instanceof ChainSignal)) throw e;
       result = e;
     }
-    if (!(result instanceof ChainSignal)) return result;
+    if (!(result instanceof ChainSignal)) {
+      if (!E.afterEnd) return result;
+      try { await E.afterEnd(mod); return result; } catch (e) { if (!(e instanceof ChainSignal)) throw e; result = e; }
+    }
     if (['PLBATTLE','SPBATTLE'].includes(mod) && E.timer && E.text?.screenText?.().some((r) => r.includes('BATTLE REPORT'))) {
       const t0 = E.timer.clock(), end = t0 + 1000 * E.timer.delaySeconds(22 * (E.state.G[88] || E.timer.stdDelay));
       try {

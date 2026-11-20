@@ -122,7 +122,7 @@ export function installCombat(E,canvas=E.display.canvas) {
       const m=val(E,'K!'),slot=crew(E,m,32),reach=slot?g(E,slot*12+798):10;
       ctx.save();
       for(let y=5;y<19;y++)for(let x=26;x<40;x++) {const b=reachBand(Math.hypot(x-arr(E,'GrpX!')[5],y-arr(E,'GrpY!')[5]),reach);if(b){ctx.fillStyle=b===2?'rgba(85,255,255,.24)':'rgba(255,255,85,.16)';ctx.fillRect((x*8-8)*2,(y*8-8)*2,16,16);}}
-      ctx.restore();drawPanel(ctx,E,0,0,[`Member ${m} reach: cyan A / yellow a`],{scale:1});
+      ctx.restore();drawPanel(ctx,E,398,14,[`Member ${m} reach:`,'cyan A / yellow a'],{scale:1,width:22});
     }
     if(phase&&hit&&enabled('hitPreview')) {const p=preview(E);if(p)drawPanel(ctx,E,0,300,p.lines,{scale:1});}
     if(!enabled('enemyTooltips'))return;
