@@ -17,7 +17,7 @@
   "settings": [
     {
       "id": "crew", "label": "Starting crew", "in": "args",
-      "help": "Veteran crew plays a ready-made save with experienced crew at its own save address. Your saved games are kept.",
+      "help": "Veteran crew plays a ready-made save with experienced crew at its own save address and keeps your saved games.",
       "choices": [
         { "label": "New crew", "args": [] },
         { "label": "Veteran crew", "args": ["--veteran"] }
@@ -26,7 +26,7 @@
   ],
   "folders": { "logs": [{ "path": "{install}/logs" }] },
   "looks": { "allowed": false, "reason": "Star Command draws in its own browser window, which looks cannot reach." },
-  "saves": ["{install}/recomp-profile/Default/Local Storage", "{install}/recomp-profile/Default/File System", "{install}/recomp-profile/Default/WebStorage", "{install}/recomp-profile/Default/QuotaManager*", "{install}/recomp-profile/port", "{install}/recomp-profile/browser"],
+  "saves": ["{install}/recomp-profile/Default/Local Storage", "{install}/recomp-profile/unused", "{install}/recomp-profile/Default/WebStorage", "{install}/recomp-profile/Default/QuotaManager*", "{install}/recomp-profile/port", "{install}/recomp-profile/browser"],
   "exit_codes": {
     "1": "Star Command could not start. Check that the selected game folder is available, the installation folder is writable, and Microsoft Edge or Google Chrome can start.",
     "10": "The launch arguments or browser selection are invalid. Check the displayed reason.",

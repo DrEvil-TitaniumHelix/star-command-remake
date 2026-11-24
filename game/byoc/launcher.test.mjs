@@ -5,6 +5,7 @@ import { copyFileSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSy
 import path from 'node:path';
 import http from 'node:http';
 import { fileURLToPath } from 'node:url';
+import { createHash } from 'node:crypto';
 
 if (process.platform !== 'win32') { console.log('SKIP Windows launcher checks'); process.exit(0); }
 const run = promisify(execFile), root = fileURLToPath(new URL('../../', import.meta.url)), local = path.join(root, 'local');
@@ -83,6 +84,7 @@ try {
     assert.equal(valid({ ...manifest, format: 'invalid' }, schema), false);
     assert.equal(valid({ ...manifest, saves: [42] }, schema), false);
     assert.ok(manifest.saves.includes('{install}/recomp-profile/browser'));
+    assert.equal(manifest.saves[1], '{install}/recomp-profile/unused'); assert.ok(!manifest.saves.some((s) => s.includes('File System')));
   });
   await test('remembered Edge survives Chrome becoming available and an override does not rewrite the choice', async () => {
     const choice = path.join(fixture, 'browser-choice'); writeFileSync(choice, 'edge');
@@ -142,6 +144,22 @@ try {
     const changed = await call(['--launch', '--no-browser', '--test-timeout', '1'], { SC_GAME: path.join(fixture, 'different-copy') });
     assert.equal(changed.code, 13); assert.match(changed.stderr, /different original copy/);
     assert.equal((await live.done).code, 0);
+  });
+  await test('--game passes the game folder to the launch and --play routes', async () => {
+    const folder = path.join(fixture, 'game-copy'); mkdirSync(folder, { recursive: true }); writeFileSync(path.join(folder, 'STARCOMM.EXE'), 'x');
+    const copy = createHash('sha256').update(path.resolve(folder).toUpperCase()).digest('base64url');
+    const served = async (port, mode) => {
+      const info = JSON.parse((await get(port, '/byoc-status')).text); assert.equal(info.mode, mode); assert.equal(info.copy, copy);
+      const zip = await get(port, '/byoc-source/' + info.source); assert.equal(zip.status, 200); assert.equal(zip.body.subarray(0, 2).toString(), 'PK');
+    };
+    const live = await start(['--launch', '--no-browser', '--test-timeout', '3', '--game', folder], { SC_GAME: path.join(fixture, 'other-copy') });
+    await served(live.port, 'launch'); assert.equal((await live.done).code, 0);
+    const port = await new Promise((resolve) => { const s = http.createServer().listen(0, '127.0.0.1', () => { const p = s.address().port; s.close(() => resolve(p)); }); });
+    const r = await call(['--play', '--no-browser', String(port), '--test-timeout', '3', '--game', folder]); assert.equal(r.code, 0, r.stderr);
+    await served(port, 'server');
+    assert.equal((await call(['--play', '--no-browser', String(port), '--test-timeout', '1', '--game', path.join(fixture, 'other-copy')])).code, 13);
+    for (let i = 0; i < 80 && (await get(port).then(() => true, () => false)); i++) await new Promise((res) => setTimeout(res, 100));
+    assert.equal((await call(['--play', '--game'])).code, 10);
   });
   await test('launch failures are logged under the install logs folder, bounded, and command-script failures are not', async () => {
     assert.deepEqual(JSON.parse(readFileSync(path.join(root, 'recomplauncher.json'), 'utf8')).folders.logs, [{ path: '{install}/logs' }]);

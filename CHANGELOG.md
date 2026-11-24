@@ -1,5 +1,18 @@
 # Changelog
 
+## v0.1.7-beta — 2026-11-24
+
+**Fixed.** Several virus scanners flagged the v0.1.6 download. The cause was the launcher script deleting its old log
+file; it now overwrites the log and deletes nothing. The game itself is unchanged.
+
+**RecompLauncher.**
+- Cloud backups hold saved progress and settings only. The imported game data is no longer copied; on another computer
+  it is prepared again from the original folder, and saved games are kept.
+- The game folder can be passed to `tools\serve.ps1` with `--game <folder>`.
+- The README carries the "Get it on RecompLauncher" badge.
+
+**Updating.** Nothing is prepared again; saved games are kept.
+
 ## v0.1.6-beta — 2026-11-20
 
 **Fixed.**

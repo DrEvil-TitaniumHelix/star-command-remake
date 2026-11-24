@@ -11,6 +11,7 @@ $browser = $null
 $child = $null
 $remembered = $false
 $test = 0
+$game = ''
 $code = 1
 
 function Fail($n, $message) {
@@ -194,8 +195,8 @@ function Serve($client) {
         $body = [Text.Encoding]::UTF8.GetBytes((@{app='star-command';id=$id;mode=$(if ($launch) { 'launch' } else { 'server' });source=$token;copy=$sourceId} | ConvertTo-Json -Compress))
     }
     elseif ($req[1].StartsWith('/byoc-source/')) {
-        if ($launch -and $sourcePath -and $req[1] -ceq $sourcePath) {
-            try { $body = Source-Zip $env:SC_GAME; $status = 200; $type = 'application/zip' }
+        if ($sourcePath -and $req[1] -ceq $sourcePath) {
+            try { $body = Source-Zip $src; $status = 200; $type = 'application/zip' }
             catch { $status = 503; $body = [Text.Encoding]::UTF8.GetBytes('The selected folder is unavailable. Choose a locally available copy, or play the imported copy.') }
         }
     } else {
@@ -245,15 +246,27 @@ try {
     for ($i = 0; $i -lt $args.Count; $i++) {
         $arg = $args[$i]
         if ($arg -in @('--launch', '--play', '--veteran', '--no-browser', '--server')) { continue }
+        if ($arg -eq '--game') {
+            $i++
+            if ($i -ge $args.Count -or !$args[$i]) { Fail 10 '--game requires the game folder.' }
+            $game = $args[$i]
+            continue
+        }
         if ($arg -eq '--test-timeout') {
             $i++
             if (!$skip -or $i -ge $args.Count -or ![int]::TryParse($args[$i], [ref]$test) -or $test -lt 1 -or $test -gt 120) { Fail 10 '--test-timeout requires --no-browser and a value from 1 to 120 seconds.' }
             continue
         }
-        if ($arg -notmatch '^\d+$' -or ![int]::TryParse($arg, [ref]$port) -or $port -lt 0 -or $port -gt 65535) { Fail 10 'Usage: serve.ps1 [port] [--launch|--play|--veteran] [--no-browser] [--test-timeout seconds]' }
+        if ($arg -notmatch '^\d+$' -or ![int]::TryParse($arg, [ref]$port) -or $port -lt 0 -or $port -gt 65535) { Fail 10 'Usage: serve.ps1 [port] [--launch|--play|--veteran] [--game folder] [--no-browser] [--test-timeout seconds]' }
     }
     $hash = [Security.Cryptography.SHA256]::Create()
     try { $id = [Convert]::ToBase64String($hash.ComputeHash([Text.Encoding]::UTF8.GetBytes($root.ToUpperInvariant()))) } finally { $hash.Dispose() }
+    $src = if ($game) { $game } elseif ($launch) { $env:SC_GAME } else { '' }
+    $sourceId = ''
+    if ($src) {
+        $hash = [Security.Cryptography.SHA256]::Create()
+        try { $sourceId = [Convert]::ToBase64String($hash.ComputeHash([Text.Encoding]::UTF8.GetBytes([IO.Path]::GetFullPath($src).TrimEnd('\').ToUpperInvariant()))).TrimEnd('=').Replace('+', '-').Replace('/', '_') } finally { $hash.Dispose() }
+    }
     if ($legacy -and !$launch) {
         $code = 12
         $choiceFile = Join-Path (Split-Path $PSScriptRoot -Parent) 'browser-choice'
@@ -264,6 +277,7 @@ try {
             $a = @('-NoProfile', '-WindowStyle', 'Hidden', '-ExecutionPolicy', 'Bypass', '-File', ('"' + $PSCommandPath + '"'), '--server', $port)
             if ($skip) { $a += '--no-browser' }
             if ($test) { $a += @('--test-timeout', $test) }
+            if ($game) { $a += @('--game', ('"' + [IO.Path]::GetFullPath($game).TrimEnd('\') + '"')) }
             $child = Start-Process -FilePath (Join-Path $PSHOME 'powershell.exe') -ArgumentList $a -WindowStyle Hidden -PassThru
             $until = [DateTime]::UtcNow.AddSeconds(10)
             while (!(Listening $port)) {
@@ -271,9 +285,15 @@ try {
                 Start-Sleep -Milliseconds 30
             }
         }
-        if (!(Own-Server $port 'server')) { Fail 13 "Another program is using port $port. Close that program and retry; the game address has not changed." }
+        $own = Own-Server $port 'server'
+        if (!$own) { Fail 13 "Another program is using port $port. Close that program and retry; the game address has not changed." }
+        if ($sourceId -and $own.copy -cne $sourceId) { Fail 13 'Close the running game before selecting a different original copy, then retry.' }
         $url = "http://localhost:$port/index.html"
         if ($args -contains '--veteran') { $url = "http://127.0.0.1:$port/index.html?save=veteran" }
+        if ($sourceId) {
+            $u = [Uri]$url
+            $url = "http://$($u.Authority)/byoc/import/index.html?launch=1&source=$($own.source)&copy=$($own.copy)&return=" + [Uri]::EscapeDataString('../..' + $u.PathAndQuery)
+        }
         $code = 17
         if (!$skip) { Start-Process -FilePath $exe -ArgumentList (App-Args $url); Remember-Browser $choiceFile $exe }
         $code = 0
@@ -286,11 +306,6 @@ try {
         $choiceFile = Join-Path $profile 'browser'
         $code = 12
         if (!$skip) { $exe = Find-Browser $choiceFile }
-        $sourceId = ''
-        if ($env:SC_GAME) {
-            $hash = [Security.Cryptography.SHA256]::Create()
-            try { $sourceId = [Convert]::ToBase64String($hash.ComputeHash([Text.Encoding]::UTF8.GetBytes([IO.Path]::GetFullPath($env:SC_GAME).TrimEnd('\').ToUpperInvariant()))).TrimEnd('=').Replace('+', '-').Replace('/', '_') } finally { $hash.Dispose() }
-        }
         $portFile = Join-Path $profile 'port'
         $remembered = Test-Path -LiteralPath $portFile
         if ($remembered) {
@@ -307,14 +322,14 @@ try {
             $code = 0
             exit 0
         }
-        $code = 15
-        if ($env:SC_GAME) {
-            $rng = [Security.Cryptography.RandomNumberGenerator]::Create()
-            $bytes = New-Object byte[] 32
-            try { $rng.GetBytes($bytes) } finally { $rng.Dispose() }
-            $token = [Convert]::ToBase64String($bytes).TrimEnd('=').Replace('+', '-').Replace('/', '_')
-            $sourcePath = '/byoc-source/' + $token
-        }
+    }
+    $code = 15
+    if ($src) {
+        $rng = [Security.Cryptography.RandomNumberGenerator]::Create()
+        $bytes = New-Object byte[] 32
+        try { $rng.GetBytes($bytes) } finally { $rng.Dispose() }
+        $token = [Convert]::ToBase64String($bytes).TrimEnd('=').Replace('+', '-').Replace('/', '_')
+        $sourcePath = '/byoc-source/' + $token
     }
     $code = 19
     if ($fixed -and !$skip) { Watch-Windows }
@@ -394,8 +409,8 @@ try {
             $log = Join-Path (Split-Path $PSScriptRoot -Parent) 'logs'
             [IO.Directory]::CreateDirectory($log) | Out-Null
             $log = Join-Path $log 'launcher.log'
-            if ((Test-Path -LiteralPath $log) -and (Get-Item -LiteralPath $log).Length -gt 65536) { Remove-Item -LiteralPath $log }
-            [IO.File]::AppendAllText($log, [DateTime]::UtcNow.ToString('o') + " exit $code " + $prefix[$code] + $reason + [Environment]::NewLine)
+            $line = [DateTime]::UtcNow.ToString('o') + " exit $code " + $prefix[$code] + $reason
+            if ((Test-Path -LiteralPath $log) -and (Get-Item -LiteralPath $log).Length -gt 65536) { Set-Content -LiteralPath $log -Value $line } else { Add-Content -LiteralPath $log -Value $line }
         } catch {}
     }
     Show-Error ($prefix[$code] + $reason)

@@ -1,8 +1,10 @@
 # Star Command (SSI, 1988) in the browser
 
+<a href="https://recomplauncher.com"><picture><source media="(prefers-color-scheme: dark)" srcset="https://recomplauncher.com/assets/press/launcher/badge-light.svg"><img alt="Get it on RecompLauncher" src="https://recomplauncher.com/assets/press/launcher/badge-dark.svg" height="48"></picture></a>
+
 A faithful rebuild of **Star Command** (Strategic Simulations, Inc., 1988; written by Winston Douglas Wood) that runs in
 a web browser. It was made from a decode of the original QuickBASIC 3 program: its seven main modules were
-turned into readable pseudocode, reviewed, and translated into a JavaScript engine. Status: **beta (v0.1.6-beta)**,
+turned into readable pseudocode, reviewed, and translated into a JavaScript engine. Status: **beta (v0.1.7-beta)**,
 ready for community testing.
 
 **Bring your own copy.** This repository contains none of the game's files: no program, data, graphics or sound. You
@@ -57,6 +59,8 @@ save at that address is kept.
 After saving and closing the game, press **Ctrl+C** in the terminal to stop the server. Opening the game page directly
 from the file manager does not work.
 
+**Passing the game folder:** `StarCommand.exe --launch --game "<folder>"` or `tools\serve.ps1 --play --game "<folder>"` imports from that folder without choosing it on the import page.
+
 ### Updating
 
 When an update changes how the game is prepared, an intact imported copy is prepared again automatically from the
@@ -78,7 +82,8 @@ data deletes its import and saves; private browsing does not
 keep them after the private session ends.
 
 **Importing happens on this computer and does not upload your files.** If you enable **RecompLauncher cloud backups**,
-the launcher can upload the game's browser-data backups, including saved progress and stored imported game data.
+the launcher can upload the game's saved progress and settings from that browser profile. The imported game data is not
+included; on another computer it is prepared again from your original folder, and your saves are kept.
 Those backups are separate from the local import process.
 
 ### Backups and removing the game
