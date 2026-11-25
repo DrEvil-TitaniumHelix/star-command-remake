@@ -4,7 +4,7 @@
 
 A faithful rebuild of **Star Command** (Strategic Simulations, Inc., 1988; written by Winston Douglas Wood) that runs in
 a web browser. It was made from a decode of the original QuickBASIC 3 program: its seven main modules were
-turned into readable pseudocode, reviewed, and translated into a JavaScript engine. Status: **beta (v0.1.7-beta)**,
+turned into readable pseudocode, reviewed, and translated into a JavaScript engine. Status: **beta (v0.1.8-beta)**,
 ready for community testing.
 
 **Bring your own copy.** This repository contains none of the game's files: no program, data, graphics or sound. You

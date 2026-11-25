@@ -2,16 +2,18 @@ import os, re, subprocess, sys, zipfile
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-FILES = ('tools/serve.py', 'tools/serve.ps1', 'tools/make_release.py', 'tools/launcher.c', 'README.md', 'CHANGELOG.md', 'LICENSE', 'LICENSE-DOCS', 'LICENSE-MIT', 'Play Star Command.cmd', 'Play Star Command (Veteran Crew).cmd', 'recomplauncher.json')
+FILES = ('tools/serve.py', 'tools/serve.ps1', 'tools/make_release.py', 'tools/launcher.c', 'tools/launcher.rc', 'tools/launcher.manifest', 'README.md', 'CHANGELOG.md', 'LICENSE', 'LICENSE-DOCS', 'LICENSE-MIT', 'Play Star Command.cmd', 'Play Star Command (Veteran Crew).cmd', 'recomplauncher.json')
 
 
-def launcher():
+def launcher(version):
     out = ROOT / 'dist' / 'build'
     out.mkdir(parents=True, exist_ok=True)
     vc = Path(os.environ.get('ProgramFiles(x86)', 'C:/Program Files (x86)')) / 'Microsoft Visual Studio/2022/BuildTools/VC/Auxiliary/Build/vcvars64.bat'
     exe = out / 'StarCommand.exe'
     batch = out / 'compile.cmd'
-    batch.write_text('\n'.join(['@echo off', f'call "{vc}" >nul', 'if errorlevel 1 exit /b 1', f'cl /nologo /O2 /MT "{ROOT / "tools/launcher.c"}" /Fo:"{out / "launcher.obj"}" /Fe:"{exe}" /link /Brepro /SUBSYSTEM:WINDOWS', 'exit /b %errorlevel%', '']))
+    n = (re.findall(r'\d+', version) + ['0'] * 4)[:4]
+    (out / 'version.h').write_text(f'#define VER_N {",".join(n)}\n#define VER_S "{version}"\n')
+    batch.write_text('\n'.join(['@echo off', f'call "{vc}" >nul', 'if errorlevel 1 exit /b 1', f'rc /nologo /i "{out}" /i "{ROOT / "tools"}" /fo "{out / "launcher.res"}" "{ROOT / "tools/launcher.rc"}" || exit /b 1', f'cl /nologo /O2 /MT "{ROOT / "tools/launcher.c"}" "{out / "launcher.res"}" /Fo:"{out / "launcher.obj"}" /Fe:"{exe}" /link /Brepro /SUBSYSTEM:WINDOWS /NODEFAULTLIB:libucrt.lib ucrt.lib', 'exit /b %errorlevel%', '']))
     r = subprocess.run(['cmd', '/c', str(batch)], cwd=out, capture_output=True, text=True)
     if r.returncode or not exe.is_file():
         raise RuntimeError('launcher compilation failed: ' + r.stdout + r.stderr)
@@ -24,7 +26,7 @@ def build(version):
     files = sorted([p.relative_to(ROOT).as_posix() for p in (ROOT / 'game').rglob('*') if p.is_file()] + list(FILES))
     out = ROOT / 'dist' / f'star-command-remake-{version}-windows-x64.zip'
     out.parent.mkdir(exist_ok=True)
-    exe = launcher()
+    exe = launcher(version)
     with zipfile.ZipFile(out, 'w', zipfile.ZIP_DEFLATED, compresslevel=9) as z:
         for name in files:
             p = ROOT / name

@@ -1,5 +1,13 @@
 # Changelog
 
+## v0.1.8-beta — 2026-11-25
+
+**Fixed.** Three virus scanners flagged the v0.1.7 download because of its launcher program, `StarCommand.exe`. The
+program now carries version information and a manifest and is built with a smaller runtime; it does the same job as
+before. The game itself is unchanged.
+
+**Updating.** Nothing is prepared again; saved games are kept.
+
 ## v0.1.7-beta — 2026-11-24
 
 **Fixed.** Several virus scanners flagged the v0.1.6 download. The cause was the launcher script deleting its old log

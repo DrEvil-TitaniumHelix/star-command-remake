@@ -191,7 +191,7 @@ try {
   });
   console.log(`launcher safety: ${count} checks passed`);
 } finally {
-  for (const child of children) if (child.exitCode === null) child.kill();
+  for (const child of children) if (child.exitCode === null && child.signalCode === null) { const closed = new Promise((r) => child.once('close', r)); child.kill(); await closed; }
   const target = path.resolve(fixture), boundary = path.resolve(local) + path.sep;
   if (!target.startsWith(boundary) || !path.basename(target).startsWith('round2-y-')) throw new Error('Unsafe cleanup target');
   if (existsSync(target)) rmSync(target, { recursive: true, force: true });
